@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Sales Analytics – Testing Task</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f1f5f9;
+            color: #0f172a;
+            font: 15px/1.5 "Segoe UI", Arial, sans-serif;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 24px;
+            background: #14274e;
+            color: white;
+        }
+
+        header strong {
+            font-size: 19px;
+        }
+
+        header span {
+            color: #dbeafe;
+        }
+
+        main {
+            max-width: 1120px;
+            margin: auto;
+            padding: 16px;
+        }
+
+        section, .notice {
+            margin-bottom: 16px;
+            padding: 24px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        h1, h2 {
+            margin: 0 0 12px;
+            color: #14274e;
+        }
+
+        h1 {
+            font-size: 29px;
+        }
+
+        h2 {
+            font-size: 21px;
+        }
+
+        .intro {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .intro p {
+            max-width: 680px;
+            margin: 0;
+        }
+
+        .hint {
+            max-width: 280px;
+            padding: 12px;
+            color: #1e40af;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
+            gap: 14px;
+            align-items: end;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        select, button {
+            height: 42px;
+            padding: 0 12px;
+            font: inherit;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: white;
+        }
+
+        button {
+            padding: 0 24px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        button.primary {
+            color: white;
+            background: #1d6ff2;
+            border-color: #1d6ff2;
+        }
+
+        button.secondary {
+            color: #1d6ff2;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px 14px;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f1f5f9;
+            color: #14274e;
+        }
+
+        .status {
+            min-height: 24px;
+            margin: 10px 0;
+            color: #475569;
+        }
+
+        .error {
+            color: #b91c1c;
+        }
+
+        .empty {
+            padding: 28px;
+            text-align: center;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            color: #475569;
+        }
+
+        .notice {
+            color: #1e40af;
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        @media (max-width: 850px) {
+            .filters {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 520px) {
+            .filters {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                padding: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+<header><strong>▁▇▅ &nbsp;Sales Analytics</strong><span>QA Interview Task</span></header>
+<main>
+    <section class="intro">
+        <div><h1>Sales Analytics – Testing Task</h1>
+            <p>This application displays sales transactions in a table. You can use filters and
+                sorting to view the data.</p>
+            <p>Design a set of UI and API test scenarios for this functionality.</p></div>
+        <aside class="hint"><strong>Tip</strong><br>Inspect the browser Network panel when filters
+            are applied.
+        </aside>
+    </section>
+    <section><h2>Filters</h2>
+        <div class="filters">
+            <label>Date range<select id="dateRange">
+                <option value="none">Not selected</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+            </select></label>
+            <label>Region<select id="region">
+                <option value="none">Not selected</option>
+                <option>Europe</option>
+                <option>North America</option>
+                <option>Asia</option>
+            </select></label>
+            <label>Category<select id="category">
+                <option value="none">Not selected</option>
+                <option>Furniture</option>
+                <option>Appliances</option>
+                <option>Lighting</option>
+            </select></label>
+            <label>Sort by<select id="sort">
+                <option value="date_asc">Date: Oldest → Newest</option>
+                <option value="date_desc">Date: Newest → Oldest</option>
+                <option value="rev_asc">Revenue: Low → High</option>
+                <option value="rev_desc">Revenue: High → Low</option>
+            </select></label>
+            <div class="buttons">
+                <button class="primary" id="apply">Apply</button>
+                <button class="secondary" id="clear">Clear</button>
+            </div>
+        </div>
+    </section>
+    <section><h2>Sales Transactions</h2>
+        <div aria-live="polite" class="status" id="status"></div>
+        <table aria-describedby="status" aria-label="Sales transactions">
+            <thead>
+            <tr>
+                <th>Date</th>
+                <th>Region</th>
+                <th>Category</th>
+                <th>Revenue (USD)</th>
+                <th>Order ID</th>
+            </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" hidden id="empty">No data available</div>
+        <div class="footer"><span id="count">Loading transactions…</span><span>Page 1</span></div>
+    </section>
+    <div class="notice">This is a demo application for a QA interview task. The data above is sample
+        data and can be used to design your test scenarios.
+    </div>
+</main>
+<script>
+    const controls = ['dateRange', 'region', 'category', 'sort'].map(
+        id => document.getElementById(id));
+    const rows = document.getElementById('rows'), empty = document.getElementById('empty'),
+        status = document.getElementById('status'), count = document.getElementById('count');
+    const values = () => Object.fromEntries(controls.map(el => [el.id, el.value]));
+
+    async function load() {
+        const params = new URLSearchParams(values());
+        status.className = 'status';
+        status.textContent = 'Loading transactions…';
+        try {
+            const response = await fetch(`/api/transactions?${params}`);
+            if (!response.ok) {
+                throw new Error(`Request failed (${response.status})`);
+            }
+            const result = await response.json();
+            rows.replaceChildren(...result.data.map(row => {
+                const tr = document.createElement('tr');
+                [row.date, row.region, row.category, row.revenue.toLocaleString('en-US'),
+                    row.id].forEach(value => {
+                    const td = document.createElement('td');
+                    td.textContent = value;
+                    tr.append(td);
+                });
+                return tr;
+            }));
+            empty.hidden = result.data.length !== 0;
+            count.textContent = `Showing ${result.meta.returned} of ${result.meta.total} transactions`;
+            status.textContent = '';
+        } catch (error) {
+            rows.replaceChildren();
+            empty.hidden = false;
+            count.textContent = 'Unable to load transactions';
+            status.className = 'status error';
+            status.textContent = error.message;
+        }
+    }
+
+    document.getElementById('apply').addEventListener('click', load);
+    document.getElementById('clear').addEventListener('click', () => {
+        document.getElementById('dateRange').value = 'none';
+        document.getElementById('region').value = 'none';
+        document.getElementById('category').value = 'none';
+        load();
+    });
+    load();
+</script>
+</body>
+</html>
