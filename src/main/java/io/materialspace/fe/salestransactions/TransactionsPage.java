@@ -39,7 +39,7 @@ public class TransactionsPage extends BasePage {
                 "GET /api/transactions failed with HTTP " + response.status()
             );
         }
-        transactionsGridComponent.waitForStatusHidden();
+        transactionsGridComponent.waitForLoadingStatusHidden();
     }
 
     @Override

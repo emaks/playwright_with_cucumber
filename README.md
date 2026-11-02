@@ -176,6 +176,162 @@ Hooks also preserve screenshot/API-client cleanup errors when session cleanup fa
 Allure's Cucumber adapter writes report results; Cucumber also writes the JSON report and
 failed-scenario list.
 
+## Planned improvements
+
+Ideas for using the framework beyond this demo.
+
+1. **Keep framework code separate from application code.**
+
+   Keep Playwright sessions, controls, HTTP clients, reporting, and cleanup separate from
+   Sales Analytics pages, services, and models. Framework code should not import application
+   classes.
+
+   One possible package layout:
+
+   ```text
+   framework/
+     ui/                 # Browser session, controls, element initialization
+     api/                # HTTP client contract and transport
+     reporting/          # Allure integration
+   salesanalytics/
+     domain/             # Business concepts
+     api/                # Transactions service and API models
+     ui/                 # Pages and components
+   ```
+
+   Another project could then reuse the framework without copying Sales Analytics code.
+   Packages in one project are enough to start with. Move the framework into a separate
+   Maven module or shared library when another project actually needs it.
+
+2. **Wire dependencies in providers.**
+
+   Continue the current approach: providers create clients and reporting wrappers, then pass
+   them to services and Page Objects. Services should not create their own HTTP clients,
+   fetch dependencies from a global registry, or call Allure directly.
+
+   For example, the API provider wires
+   `PlaywrightApiClient → AllureApiClient → TransactionsService`.
+   Add authentication or swap the HTTP client there, rather than changing every service.
+
+   This also makes dependencies easier to replace in tests. Each provider should make clear
+   how long its resources live and who closes them. Keep PicoContainer; another DI framework
+   or service locator is not needed.
+
+3. **Use a response model that does not depend on Playwright.**
+
+   `ApiClient` hides the HTTP client, but `ApiResponse` still wraps a Playwright response.
+   If we need to replace Playwright or test services without HTTP calls, return our own
+   response containing the status, headers, and body.
+
+   For example:
+
+   ```java
+   public record HttpResponse(
+       int status,
+       Map<String, List<String>> headers,
+       String body
+   ) {}
+   ```
+
+   Copy the headers and their value lists so callers cannot change them. The HTTP client
+   reads the response, copies its data, and closes the original resource. Services and
+   reporting use the copy, which can also be supplied directly in tests.
+
+   This works for small JSON responses. Streams and large files need a different approach
+   with explicit closing, rather than reading everything into memory. Make this change
+   when it solves a real need, not just to add another interface.
+
+4. **Handle authentication and user roles in providers.**
+
+   Keep tokens and browser login state out of services and pages. Set them up in providers
+   so each scenario does not need its own login or token-refresh code.
+
+   A provider could create an API client for `Role.ANALYST` or a fresh browser context with
+   that user's storage state. Most tests could skip UI login; login tests would still
+   go through the real flow.
+
+   Keep sessions isolated so different roles can run in parallel. Decide how to refresh
+   expired tokens, allocate test users, and clean up saved login state. Never commit
+   credentials, tokens, or storage state, or expose them in report attachments.
+   The details will depend on how the application handles authentication and permissions.
+
+5. **Manage test data outside test steps.**
+
+   Add fixtures or API helpers that create data and track what needs to be deleted.
+   Use builders where input models are complex enough to justify them.
+
+   For example, create a Europe/Furniture transaction through the API, check it in the UI,
+   then delete only the records created by that scenario. If deletion is not available,
+   use an agreed alternative, such as a separate test tenant, an environment reset,
+   or data that expires.
+
+   Tests would no longer rely on shared records that someone else might change. Use unique
+   identifiers for parallel runs, assign cleanup to a clear owner, and report cleanup errors.
+   Do not bypass the action being tested: a UI creation test must still create its record
+   through the UI.
+
+6. **Give pages and components a clear API.**
+
+   Let tests work with page operations instead of individual controls, unless they need
+   to check a control directly.
+
+   For example, wrap dropdown and button access in methods:
+
+   ```java
+   filters.selectRegion(Region.EUROPE);
+   filters.selectCategory(Category.FURNITURE);
+   filters.apply();
+   ```
+
+   Add `applyFilters(criteria)` if several scenarios repeat this sequence. Keep the smaller
+   methods for tests that check intermediate states; do not force every interaction into
+   one large method.
+
+   Layout changes would then affect fewer test operations. Pages should handle interactions,
+   waits, and reading values; business assertions belong in tests. Add a workflow layer
+   only when tests repeat the same process across several pages.
+
+7. **Declare UI elements with annotations.**
+
+   Add a small initializer that reads annotations and creates controls and components.
+   This would replace repeated constructor assignments such as
+   `new Dropdown(root.locator("#region"))` with:
+
+   ```java
+   @FindBy("#region")
+   private Dropdown regionDropdown;
+   ```
+
+   Keep the selector next to the field. Create locators relative to the parent component
+   without looking up DOM elements during initialization, so Playwright's lazy resolution
+   and auto-waiting still work. Errors should name the class and field, including unsupported
+   field types. Do not use reflection to overwrite `final` fields.
+
+   PicoContainer would still manage scenario dependencies; this initializer would only
+   handle UI elements. The goal is less boilerplate in Page Objects, not another framework
+   layer. Keep it small and test it separately.
+
+8. **Make browser reuse configurable.**
+
+   Separate the lifetime of Playwright and the browser from the lifetime of a scenario.
+   Allow a browser to stay open between tests instead of launching a new one every time.
+   Keep the current per-scenario mode available for tests that need a fresh browser process.
+
+   For example, a future `browser.lifecycle=scenario|worker` setting could choose between
+   a new browser for each scenario and one browser reused by a worker. In worker mode,
+   each scenario would still get a fresh BrowserContext and Page, keeping cookies,
+   local storage, and other context state separate. Reusing the browser should not mean
+   sharing a logged-in context or making tests depend on their execution order.
+
+   A browser owner would manage startup, reuse, and shutdown. Hooks would close each
+   scenario's context to save its HAR and trace files, while the owner would close the
+   browser and Playwright when the worker finishes. A disconnected browser should be
+   reported and replaced before the next scenario, not silently retried mid-test.
+
+   This would reduce browser startup overhead without giving up scenario isolation.
+   Parallel workers must not share Playwright objects across threads; the implementation
+   needs to keep creation, use, and cleanup on the owning thread.
+
 ## Troubleshooting
 
 | Problem                                 | What to check                                                           |

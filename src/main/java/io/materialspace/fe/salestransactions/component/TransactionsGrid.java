@@ -11,14 +11,15 @@ import java.util.List;
 
 @Accessors(fluent = true)
 public class TransactionsGrid {
-    private final static String STATUS_LOCATOR = "#status";
     private final Locator root;
+    private final Locator statusBar;
     @Getter
     private final Table salesTable;
 
     public TransactionsGrid(Locator root) {
         this.root = root;
-        salesTable = new Table(root.locator("table[aria-label='Sales transactions']"));
+        this.statusBar = root.locator("#status");
+        this.salesTable = new Table(root.locator("table[aria-label='Sales transactions']"));
     }
 
     public TransactionsGrid waitForLoaded() {
@@ -29,13 +30,12 @@ public class TransactionsGrid {
         return this;
     }
 
-    public void waitForStatusHidden() {
+    public void waitForLoadingStatusHidden() {
         loadingStatus().waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.HIDDEN));
     }
 
     private Locator loadingStatus() {
-        return root.locator(STATUS_LOCATOR)
-            .filter(new Locator.FilterOptions().setHasText("Loading transactions…"));
+        return statusBar.filter(new Locator.FilterOptions().setHasText("Loading transactions…"));
     }
 
     public List<String> getDataForColumn(Column name) {

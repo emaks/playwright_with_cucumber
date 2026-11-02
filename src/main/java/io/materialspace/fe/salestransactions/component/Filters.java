@@ -25,12 +25,12 @@ public class Filters {
 
     public Filters(Locator root) {
         this.root = root;
-        dateRangeDropdown = new Dropdown(root.locator("#dateRange"));
-        regionDropdown = new Dropdown(root.locator("#region"));
-        categoryDropdown = new Dropdown(root.locator("#category"));
-        sortByDropdown = new Dropdown(root.locator("#sort"));
-        applyButton = new Button(root.locator("#apply"));
-        clearButton = new Button(root.locator("#clear"));
+        this.dateRangeDropdown = new Dropdown(root.locator("#dateRange"));
+        this.regionDropdown = new Dropdown(root.locator("#region"));
+        this.categoryDropdown = new Dropdown(root.locator("#category"));
+        this.sortByDropdown = new Dropdown(root.locator("#sort"));
+        this.applyButton = new Button(root.locator("#apply"));
+        this.clearButton = new Button(root.locator("#clear"));
     }
 
     public Filters waitForLoaded() {
