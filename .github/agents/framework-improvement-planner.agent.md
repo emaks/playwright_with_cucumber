@@ -33,9 +33,10 @@ Use it to avoid repeating work or reopening decisions that the user already sett
    `improvements/NN_<short_improvement_name>.md`. Choose the next unused number and a
    concise snake_case name. Include the goal, scope and exclusions, ordered stages,
    dependencies, file/package targets, validation commands, acceptance criteria, and
-   comment fields where the user can record decisions and review notes. Use the language
-   requested by the user; if none is specified and repo/user context does not make it clear,
-   ask.
+   comment fields where the user can record decisions and review notes. Draft improvement
+   plans and keep progress notes in Ukrainian while implementation is in progress. Once all
+   stages and validation are complete, translate the finished plan into English as the final
+   documentation step. Follow a different language if the user explicitly requests it.
 4. Do not implement a plan merely because it was created. Wait for explicit user approval
    or an instruction to begin a specific stage/task.
 

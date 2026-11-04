@@ -201,7 +201,7 @@ generation.
 The first two items describe architecture already in place. The rest are possible next steps
 for a real project, not requirements for this demo.
 
-1. **Keep framework code separate from application code (implemented).**
+1. **Keep framework code separate from application code (implemented; [plan](improvements/01_framework_application_separation.md)).**
 
    Reusable Playwright sessions, controls, HTTP clients, reporting, and cleanup now live under
    `framework`. Sales Analytics pages, services, and models live under `salesanalytics`.
@@ -218,7 +218,7 @@ for a real project, not requirements for this demo.
    These boundaries make it possible to reuse framework code without copying Sales Analytics
    classes.
 
-2. **Wire dependencies in providers (partially implemented).**
+2. **Wire dependencies in providers (partially implemented; [plan](improvements/02_provider_dependency_wiring.md)).**
 
    The API provider currently composes `PlaywrightApiClient` with the `AllureApiClient`
    decorator. Services receive the resulting `ApiClient` through constructor injection; they

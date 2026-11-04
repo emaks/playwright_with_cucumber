@@ -233,6 +233,10 @@ Before creating or editing framework code:
    future-roadmap items unless the user selects them.
 5. Add or update focused validation, run the smallest relevant command, and report actual
    results. Update the improvement plan only for tasks that were explicitly requested.
+6. Write improvement plans and progress notes in Ukrainian while implementation is in
+   progress. After all approved stages and validation are complete, translate the finished
+   plan into English as a final documentation step. Follow another language if the user
+   explicitly asks for it.
 
 ## Current roadmap and accepted decisions
 
