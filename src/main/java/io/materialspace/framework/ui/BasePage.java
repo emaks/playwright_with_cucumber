@@ -1,11 +1,15 @@
 package io.materialspace.framework.ui;
 
 import io.materialspace.framework.config.PropertyLoader;
-import lombok.AllArgsConstructor;
+import io.materialspace.framework.ui.pagefactory.PageFactory;
 
-@AllArgsConstructor
 public abstract class BasePage {
     protected final PageWrapper page;
+
+    protected BasePage(PageWrapper page) {
+        this.page = page;
+        PageFactory.initElements(this, page);
+    }
 
     public void open(String path) {
         page.navigate(PropertyLoader.get("ui.base.url") + path);

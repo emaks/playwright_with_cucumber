@@ -10,18 +10,15 @@ import lombok.experimental.Accessors;
 
 import java.net.URI;
 
-@Getter
 @Accessors(fluent = true)
 public class TransactionsPage extends BasePage {
-    private final Filters filtersComponent;
-    private final TransactionsGrid transactionsGridComponent;
+    @Getter
+    private Filters filtersComponent;
+    @Getter
+    private TransactionsGrid transactionsGridComponent;
 
     public TransactionsPage(PageWrapper page) {
         super(page);
-        this.filtersComponent = new Filters(page.locator("//section[h2='Filters']"));
-        this.transactionsGridComponent = new TransactionsGrid(
-            page.locator("//section[h2='Sales Transactions']")
-        );
     }
 
     public void open() {

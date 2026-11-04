@@ -198,8 +198,9 @@ generation.
 
 ## Architecture and planned improvements
 
-The first two items describe architecture already in place. The rest are possible next steps
-for a real project, not requirements for this demo.
+Items 1 and 2 describe existing or partially implemented architecture, and item 9 is
+implemented. The remaining items are possible next steps for a real project, not requirements
+for this demo.
 
 1. **Keep framework code separate from application code (implemented; [plan](improvements/01_framework_application_separation.md)).**
 
@@ -326,25 +327,15 @@ for a real project, not requirements for this demo.
    waits, and reading values; business assertions belong in tests. Add a workflow layer
    only when tests repeat the same process across several pages.
 
-9. **Declare UI elements with annotations.**
+9. **Declare UI elements with annotations (implemented; [plan](improvements/03_declarative_ui_elements.md)).**
 
-   Add a small initializer that reads annotations and creates controls and components.
-   This would replace repeated constructor assignments such as
-   `new Dropdown(root.locator("#region"))` with:
-
-   ```java
-   @FindBy("#region")
-   private Dropdown regionDropdown;
-   ```
-
-   Keep the selector next to the field. Create locators relative to the parent component
-   without looking up DOM elements during initialization, so Playwright's lazy resolution
-   and auto-waiting still work. Errors should name the class and field, including unsupported
-   field types. Do not use reflection to overwrite `final` fields.
-
-   PicoContainer would still manage scenario dependencies; this initializer would only
-   handle UI elements. The goal is less boilerplate in Page Objects, not another framework
-   layer. Keep it small and test it separately.
+   The project-owned `@FindBy` and `PageFactory` initialize page components and typed
+   controls from parent-scoped Playwright locators. Field selectors override class-level
+   selectors; annotated raw `Locator` leaves and lazy `List<T>` wrappers are supported.
+   `BasePage` starts initialization from its `PageWrapper`; PicoContainer continues to own
+   scenario dependencies. Annotated fields must be non-final and have no explicit field
+   initializer. See the [contributor guide](docs/framework-contributor-guide.md) for the
+   supported types and initialization rules.
 
 10. **Make browser reuse configurable.**
 

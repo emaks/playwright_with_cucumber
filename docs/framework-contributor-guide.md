@@ -37,7 +37,8 @@ packages. `cucumber.glue` scans `io.materialspace.testsupport.cucumber` and
 | `io.materialspace.framework.api.clients` | Playwright HTTP transport | Application service behavior |
 | `io.materialspace.framework.reporting.allure` | Allure API decorator | Reporting calls from application services |
 | `io.materialspace.framework.playwright` | Playwright, browser, browser context, and API context creation | Sales Analytics selectors or endpoint names |
-| `io.materialspace.framework.ui` | Generic page wrapper and base page | Application pages and selectors |
+| `io.materialspace.framework.ui` | Generic page wrapper and base page; root Page Object initialization | Application pages and selectors |
+| `io.materialspace.framework.ui.pagefactory` | Project-owned `@FindBy` annotation and PageFactory | Application-specific selectors or business behavior |
 | `io.materialspace.framework.ui.control` | Generic `Button`, `Dropdown`, and `Table` wrappers | Business assertions |
 | `io.materialspace.framework.config`, `.json`, `.lifecycle` | Shared configuration, JSON, and cleanup utilities | Application-specific behavior |
 | `io.materialspace.salesanalytics.api` | Sales Analytics module's transactions service, filters, request builder, and API models | Playwright lifecycle management |
@@ -127,25 +128,57 @@ feature → UI definition → UI test step → TransactionsPage
 Application pages and components belong under `salesanalytics.ui`; generic controls
 belong under `framework.ui.control`. Components receive a root `Locator` and scope their
 selectors to it. Keep application selectors in the component, not in Cucumber steps.
+`BasePage` invokes `PageFactory` with its `PageWrapper` root; nested components and controls
+are then initialized from their parent locator.
 
-Example component construction:
+Use `@FindBy` on a component type for its parent selector and on fields for child selectors.
+The field selector takes precedence over the field type's class-level selector:
 
 ```java
-public Filters(Locator root) {
-    this.root = root;
-    this.regionDropdown = new Dropdown(root.locator("#region"));
-    this.applyButton = new Button(root.locator("#apply"));
+@FindBy("//section[h2='Filters']")
+public class Filters {
+    private final Locator root;
+
+    @FindBy("#region")
+    private Dropdown regionDropdown;
+
+    public Filters(Locator root) {
+        this.root = root;
+    }
+}
+
+public class TransactionsPage extends BasePage {
+    private Filters filtersComponent;
+
+    public TransactionsPage(PageWrapper page) {
+        super(page);
+    }
 }
 ```
+
+The `BasePage` constructor starts initialization for each concrete page. Its `@FindBy`
+fields must be instance, non-final fields without explicit field initializers: reflection
+assigns them before the subclass constructor body, and a field initializer could overwrite
+the assigned value. Keep component roots, such as `private final Locator root`, unannotated;
+PageFactory ignores unannotated fields. No `@UiComponent` marker or package/classpath scan
+is used.
+
+Supported annotated fields are concrete wrappers with a `Locator` constructor, such as
+`Button`, `Dropdown`, and `Table`, and raw `Locator` leaf fields. A raw Locator is assigned
+directly from its parent-scoped selector and is not recursively inspected. `List<T>` is
+supported only for concrete wrapper item types with a `Locator` constructor; `List<Locator>`,
+raw lists, wildcards, and other collections are unsupported. Each List operation resolves
+current matching locators; an iterator or stream uses the snapshot materialized when that
+operation starts. Initialization creates locators only and performs no DOM action.
+Unsupported annotated fields fail with class, field, selector, and reason.
 
 Use the established page/component methods for synchronization. `TransactionsPage` waits
 for the matching GET response when applying filters; `TransactionsGrid` waits for the
 loading indicator. Do not add fixed sleeps. Page Objects own interactions, waits, and
 reading UI state. Assertions and business expectations stay in `salesanalytics.steps.ui`.
 
-**Current limitation:** UI controls are initialized explicitly in component constructors.
-There is no annotation-based Page Factory or `@FindBy` initializer yet; that remains a
-roadmap item.
+`PlaywrightSession` sets the browser context's default action/wait timeout to 10,000 ms.
+API request timeout remains separate at 30,000 ms by default.
 
 ## Cucumber definitions and test steps
 
@@ -246,8 +279,9 @@ boundaries.
 
 Still planned: a separate Maven module when there is a second consumer, a transport-neutral
 API response, stronger ArchUnit rules against direct test-runner dependencies, role-aware
-authentication, owned test-data fixtures, a higher-level Page Object API, declarative UI
-element initialization, browser reuse, and object-based assertions.
+authentication, owned test-data fixtures, a higher-level Page Object API, browser reuse, and
+object-based assertions. Declarative UI element initialization is implemented; see the UI
+interaction flow above and `improvements/03_declarative_ui_elements.md`.
 
 The user has explicitly rejected a type-safe scenario context refactor, larger
 `PropertyLoader` changes, session closed/reinitialization guards, and decoupling the UI

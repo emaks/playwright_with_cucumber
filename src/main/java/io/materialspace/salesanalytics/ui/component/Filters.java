@@ -3,34 +3,36 @@ package io.materialspace.salesanalytics.ui.component;
 import com.microsoft.playwright.Locator;
 import io.materialspace.framework.ui.control.Button;
 import io.materialspace.framework.ui.control.Dropdown;
+import io.materialspace.framework.ui.pagefactory.FindBy;
 import io.materialspace.salesanalytics.api.TransactionFilter;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
 @Accessors(fluent = true)
+@FindBy("//section[h2='Filters']")
 public class Filters {
     private final Locator root;
     @Getter
-    private final Dropdown dateRangeDropdown;
+    @FindBy("#dateRange")
+    private Dropdown dateRangeDropdown;
     @Getter
-    private final Dropdown regionDropdown;
+    @FindBy("#region")
+    private Dropdown regionDropdown;
     @Getter
-    private final Dropdown categoryDropdown;
+    @FindBy("#category")
+    private Dropdown categoryDropdown;
     @Getter
-    private final Dropdown sortByDropdown;
+    @FindBy("#sort")
+    private Dropdown sortByDropdown;
     @Getter
-    private final Button applyButton;
+    @FindBy("#apply")
+    private Button applyButton;
     @Getter
-    private final Button clearButton;
+    @FindBy("#clear")
+    private Button clearButton;
 
     public Filters(Locator root) {
         this.root = root;
-        this.dateRangeDropdown = new Dropdown(root.locator("#dateRange"));
-        this.regionDropdown = new Dropdown(root.locator("#region"));
-        this.categoryDropdown = new Dropdown(root.locator("#category"));
-        this.sortByDropdown = new Dropdown(root.locator("#sort"));
-        this.applyButton = new Button(root.locator("#apply"));
-        this.clearButton = new Button(root.locator("#clear"));
     }
 
     public Filters waitForLoaded() {

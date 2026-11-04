@@ -74,8 +74,10 @@ Use it to avoid repeating work or reopening decisions that the user already sett
   unless asked to revisit it.
 - Session closed-state guards, repeated-initialization guards, and idempotent close changes
   were rejected and reverted. Do not reintroduce them without approval.
-- Declarative UI element initialization, browser reuse, transport-independent API responses,
-  stronger ArchUnit rules, and object-based assertions remain roadmap items, not automatic
-  implementation authorization.
+- Declarative UI element initialization is implemented in
+  `framework.ui.pagefactory` and integrated through `BasePage`; see
+  `improvements/03_declarative_ui_elements.md`. Browser reuse, transport-independent API
+  responses, stronger ArchUnit rules, and object-based assertions remain roadmap items,
+  not automatic implementation authorization.
 - Prefer a small, maintainable automation framework over adding patterns or layers for their
   own sake. The task does not require exhaustive application coverage.

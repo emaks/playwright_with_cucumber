@@ -3,6 +3,7 @@ package io.materialspace.salesanalytics.ui.component;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import io.materialspace.framework.ui.control.Table;
+import io.materialspace.framework.ui.pagefactory.FindBy;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -10,16 +11,17 @@ import lombok.experimental.Accessors;
 import java.util.List;
 
 @Accessors(fluent = true)
+@FindBy("//section[h2='Sales Transactions']")
 public class TransactionsGrid {
     private final Locator root;
-    private final Locator statusBar;
+    @FindBy("#status")
+    private Locator statusBar;
     @Getter
-    private final Table salesTable;
+    @FindBy("table[aria-label='Sales transactions']")
+    private Table salesTable;
 
     public TransactionsGrid(Locator root) {
         this.root = root;
-        this.statusBar = root.locator("#status");
-        this.salesTable = new Table(root.locator("table[aria-label='Sales transactions']"));
     }
 
     public TransactionsGrid waitForLoaded() {

@@ -18,7 +18,7 @@ import java.util.UUID;
 @Slf4j
 public class PlaywrightSession {
     private final static boolean IS_HEADLESS = Boolean.parseBoolean(PropertyLoader.get("headless"));
-    private final static double TIMEOUT = 60000;
+    private final static double DEFAULT_TIMEOUT_MS = 10_000;
     private final Playwright playwright = Playwright.create();
     private Browser browser;
     private BrowserContext browserContext;
@@ -60,7 +60,7 @@ public class PlaywrightSession {
                 .setViewportSize(1790, 1120)
                 .setRecordHarPath(getHarRecordingPath())
         );
-        browserContext.setDefaultTimeout(TIMEOUT);
+        browserContext.setDefaultTimeout(DEFAULT_TIMEOUT_MS);
     }
 
     private Path getHarRecordingPath() {
