@@ -2,6 +2,8 @@
 
 Java, Maven, Cucumber, and Playwright tests for the Sales Analytics demo. The Node.js application
 under test is included in [`sales-analytics-qa-task/`](sales-analytics-qa-task/).
+In the Java framework, `salesanalytics` represents a functional module of the application
+under test, not a separate application.
 
 The current scenarios cover region/category filtering: API tests check the HTTP status and
 returned values; UI tests apply single or combined filters and check the grid.
@@ -69,16 +71,13 @@ The default worker count is one. To run scenarios in parallel:
 mvn test -Dthreads=2
 ```
 
-Surefire retries failing tests once. Override the count with:
-
-```bash
-mvn test -Dsurefire.rerunFailingTestsCount=2
-```
+Surefire retries failing tests once by default. To change the retry count, update
+`rerunFailingTestsCount` in the Maven Surefire configuration in `pom.xml`.
 
 ## Configuration
 
-`PropertyLoader` reads `src/main/resources/configs/{env}.properties`. The default environment is
-`local`, and it is the only configuration file included:
+`framework.config.PropertyLoader` reads `src/main/resources/configs/{env}.properties`.
+The default environment is `local`, and it is the only configuration file included:
 
 ```properties
 ui.base.url=http://localhost:3000
@@ -104,8 +103,8 @@ mvn test \
 | `threads`      | `1`                         | Cucumber worker count                |
 | `tag`          | All tags                    | Cucumber tag expression, e.g. `@api` |
 
-API requests have a 30,000 ms timeout. Set `.timeout(milliseconds)` on `RequestOptionsBuilder`
-to override it for a request; `0` disables the timeout.
+API requests have a 30,000 ms timeout. Set `.timeout(milliseconds)` on
+`salesanalytics.api.RequestOptionsBuilder` to override it for a request; `0` disables the timeout.
 
 ## Reports
 
@@ -144,82 +143,107 @@ self-contained `allure-report/index.html`, use the CLI after the Maven plugin ha
 pom.xml                          # Build, dependencies, and test configuration
 sales-analytics-qa-task/         # Node.js app under test
 src/main/java/io/materialspace/
-  be/                            # API clients, services, request options, and response models
-  fe/                            # Playwright session, pages, components, and controls
-  lib/                           # Context, configuration, cleanup, and JSON utilities
+  framework/
+    api/                         # API client contract, options, response, and Playwright client
+    config/                      # PropertyLoader
+    json/                        # ObjectMapperUtils
+    lifecycle/                   # Cleanup
+    playwright/                  # Browser and API session resources
+    reporting/allure/            # Allure API client decorator
+    ui/                          # BasePage and PageWrapper
+      control/                   # Button, Dropdown, Table
+  salesanalytics/
+    api/                         # Sales Analytics functional module: service, filters, builder
+      models/                    # TransactionsResponse
+    ui/                          # TransactionsPage
+      component/                 # Filters and TransactionsGrid
 src/main/resources/
   configs/                       # Environment configuration
   *.properties                   # Logging and Allure settings
 src/test/java/io/materialspace/
-  definitions/                   # Cucumber step definitions, hooks, and DI providers
-  steps/                         # Test operations and assertions
+  architecture/                  # ArchUnit package-boundary rules
+  salesanalytics/
+    definitions/                 # Application-specific Cucumber bindings and mappings
+    steps/                       # API/UI test operations and assertions
+  testsupport/
+    context/                     # Scenario context
+    cucumber/                    # Shared hooks, providers, and transformers
   suites/                        # JUnit Platform suite entry points
 src/test/resources/
   features/be/                   # API scenarios
   features/fe/                   # UI scenarios
-  cucumber.properties            # Glue and report plugins
+  cucumber.properties            # Glue packages and report plugins
+  archunit.properties            # ArchUnit import settings
 ```
 
-Cucumber 7 runs the Gherkin scenarios. Separate JUnit Platform suites select API and UI features;
-`@api` and `@ui` tags select the relevant hooks. Step definitions call test operations, which use
-API services or Page Objects. UI components and controls keep selectors out of the steps.
-Playwright handles both browser interactions and HTTP requests; AssertJ handles assertions and
-Jackson maps JSON responses.
+Cucumber 7 runs the Gherkin features. `BackendTests` and `FrontendTests` select the API and UI
+feature packages; `cucumber.glue` includes both `testsupport.cucumber` and
+`salesanalytics.definitions`. Application bindings call test steps, which use API services or
+Page Objects. Selectors stay in UI components and controls. Playwright handles browser and API
+automation; AssertJ provides assertions and Jackson maps JSON responses.
 
-PicoContainer provides scenario-scoped constructor injection. The API provider wraps
-`PlaywrightApiClient` with `AllureApiClient`, so services do not need to call Allure themselves.
-`PlaywrightSession` owns browser resources, and hooks handle setup and teardown. Cleanup closes
-the browser context first to save HAR files, then the browser and Playwright. All cleanup actions
-are attempted; the first error is rethrown and later errors are added as suppressed exceptions.
+PicoContainer provides scenario-scoped constructor injection. The API provider wires
+`PlaywrightApiClient` with the `AllureApiClient` decorator, keeping reporting out of services.
+`PlaywrightSession` owns Playwright resources. Hooks close the browser context first to save HAR
+files, then close the browser and Playwright. Cleanup attempts every action, rethrows the first
+failure, and adds later cleanup errors as suppressed exceptions.
 Hooks also preserve screenshot/API-client cleanup errors when session cleanup fails.
 
 Allure's Cucumber adapter writes report results; Cucumber also writes the JSON report and
 failed-scenario list.
 
-## Planned improvements
+See the [framework contributor guide](docs/framework-contributor-guide.md) for layer
+responsibilities, extension examples, lifecycle rules, and constraints relevant to code
+generation.
 
-Ideas for using the framework beyond this demo.
+## Architecture and planned improvements
 
-1. **Keep framework code separate from application code.**
+The first two items describe architecture already in place. The rest are possible next steps
+for a real project, not requirements for this demo.
 
-   Keep Playwright sessions, controls, HTTP clients, reporting, and cleanup separate from
-   Sales Analytics pages, services, and models. Framework code should not import application
-   classes.
+1. **Keep framework code separate from application code (implemented).**
 
-   One possible package layout:
+   Reusable Playwright sessions, controls, HTTP clients, reporting, and cleanup now live under
+   `framework`. Sales Analytics pages, services, and models live under `salesanalytics`.
+   Framework code must not import application or test classes; ArchUnit checks this boundary.
+
+   Current top-level packages:
 
    ```text
-   framework/
-     ui/                 # Browser session, controls, element initialization
-     api/                # HTTP client contract and transport
-     reporting/          # Allure integration
-   salesanalytics/
-     domain/             # Business concepts
-     api/                # Transactions service and API models
-     ui/                 # Pages and components
+   framework/            # Reusable test infrastructure
+   salesanalytics/       # Application-specific API and UI code
+   testsupport/          # Shared Cucumber glue and scenario context
    ```
 
-   Another project could then reuse the framework without copying Sales Analytics code.
-   Packages in one project are enough to start with. Move the framework into a separate
-   Maven module or shared library when another project actually needs it.
+   These boundaries make it possible to reuse framework code without copying Sales Analytics
+   classes.
 
-2. **Wire dependencies in providers.**
+2. **Wire dependencies in providers (partially implemented).**
 
-   Continue the current approach: providers create clients and reporting wrappers, then pass
-   them to services and Page Objects. Services should not create their own HTTP clients,
-   fetch dependencies from a global registry, or call Allure directly.
+   The API provider currently composes `PlaywrightApiClient` with the `AllureApiClient`
+   decorator. Services receive the resulting `ApiClient` through constructor injection; they
+   do not create HTTP clients, use a global registry, or call Allure. Cucumber-PicoContainer
+   constructs `TransactionsService` and Page Objects through constructor injection, so there
+   is no separate provider for every class.
 
-   For example, the API provider wires
-   `PlaywrightApiClient → AllureApiClient → TransactionsService`.
-   Add authentication or swap the HTTP client there, rather than changing every service.
+   What's left is to add explicit providers when an application-specific dependency needs
+   configuration or a distinct lifetime—for example, role-specific API clients, authenticated
+   browser contexts, or an alternate transport. Keep resource ownership and cleanup clear.
+   Do not add providers just to wrap classes PicoContainer can construct directly.
 
-   This also makes dependencies easier to replace in tests. Each provider should make clear
-   how long its resources live and who closes them. Keep PicoContainer; another DI framework
-   or service locator is not needed.
+3. **Extract the framework into a separate Maven module (Medium).**
 
-3. **Use a response model that does not depend on Playwright.**
+   Framework and Sales Analytics code currently have separate packages but share one Maven
+   module. If another application needs the framework, move the reusable code into its own
+   module and keep application defaults and Cucumber glue in the consuming test project.
+   This would make the dependency boundary visible to Maven as well as ArchUnit. Until there
+   is another consumer, the package split is enough.
 
-   `ApiClient` hides the HTTP client, but `ApiResponse` still wraps a Playwright response.
+4. **Use a response model that does not depend on Playwright (Medium).**
+
+   `framework.api.ApiClient` hides the HTTP client, but `framework.api.ApiResponse` directly
+   wraps Playwright's `APIResponse` ([source](src/main/java/io/materialspace/framework/api/ApiResponse.java#L3-L9)).
+   That means a different transport would still affect the framework API.
    If we need to replace Playwright or test services without HTTP calls, return our own
    response containing the status, headers, and body.
 
@@ -241,7 +265,18 @@ Ideas for using the framework beyond this demo.
    with explicit closing, rather than reading everything into memory. Make this change
    when it solves a real need, not just to add another interface.
 
-4. **Handle authentication and user roles in providers.**
+5. **Keep test-runner dependencies out of application code (Low).**
+
+   ArchUnit currently prevents dependencies on the `testsupport` package, but it does not
+   prevent production classes from importing Cucumber, JUnit, or AssertJ directly
+   ([current rules](src/test/java/io/materialspace/architecture/ArchitectureTest.java#L12-L35)).
+   Add rules for `salesanalytics.api` and `salesanalytics.ui` that reject test-runner
+   dependencies, while allowing framework integrations such as Allure and Playwright where
+   they belong. The current checks cover only this functional module; add each future
+   application module to the boundary rules as it is introduced. This would make the
+   intended boundary harder to bypass accidentally.
+
+6. **Handle authentication and user roles in providers.**
 
    Keep tokens and browser login state out of services and pages. Set them up in providers
    so each scenario does not need its own login or token-refresh code.
@@ -255,7 +290,7 @@ Ideas for using the framework beyond this demo.
    credentials, tokens, or storage state, or expose them in report attachments.
    The details will depend on how the application handles authentication and permissions.
 
-5. **Manage test data outside test steps.**
+7. **Manage test data outside test steps.**
 
    Add fixtures or API helpers that create data and track what needs to be deleted.
    Use builders where input models are complex enough to justify them.
@@ -270,7 +305,7 @@ Ideas for using the framework beyond this demo.
    Do not bypass the action being tested: a UI creation test must still create its record
    through the UI.
 
-6. **Give pages and components a clear API.**
+8. **Give pages and components a clear API.**
 
    Let tests work with page operations instead of individual controls, unless they need
    to check a control directly.
@@ -291,7 +326,7 @@ Ideas for using the framework beyond this demo.
    waits, and reading values; business assertions belong in tests. Add a workflow layer
    only when tests repeat the same process across several pages.
 
-7. **Declare UI elements with annotations.**
+9. **Declare UI elements with annotations.**
 
    Add a small initializer that reads annotations and creates controls and components.
    This would replace repeated constructor assignments such as
@@ -311,7 +346,7 @@ Ideas for using the framework beyond this demo.
    handle UI elements. The goal is less boilerplate in Page Objects, not another framework
    layer. Keep it small and test it separately.
 
-8. **Make browser reuse configurable.**
+10. **Make browser reuse configurable.**
 
    Separate the lifetime of Playwright and the browser from the lifetime of a scenario.
    Allow a browser to stay open between tests instead of launching a new one every time.
@@ -332,7 +367,16 @@ Ideas for using the framework beyond this demo.
    Parallel workers must not share Playwright objects across threads; the implementation
    needs to keep creation, use, and cleanup on the owning thread.
 
-9. **Compare objects instead of checking fields one by one.**
+11. **Separate Playwright session configuration and resource lifetimes (accepted constraint).**
+
+   [`PlaywrightSession`](src/main/java/io/materialspace/framework/playwright/PlaywrightSession.java#L20-L48)
+   reads `headless` through static configuration and keeps one `Browser`/`BrowserContext` pair.
+   `getNewPage()` launches a new pair and overwrites those fields. This is safe with the current
+   one-page-per-scenario hooks, but repeated calls on one session could leave the earlier pair
+   unclosed. Before reusing a browser across tests, make configuration instance-scoped and give
+   the browser and each scenario's context/page separate owners.
+
+12. **Compare objects instead of checking fields one by one.**
 
    Update API assertions to compare transaction objects with AssertJ instead of using
    nested loops and a switch over field names. For UI checks, add a method that reads
@@ -362,6 +406,21 @@ Ideas for using the framework beyond this demo.
    Keep the non-empty result checks so an empty response or grid cannot pass a filter test.
 
 ## Troubleshooting
+
+On macOS 27, Firefox may fail at launch with `Could not find profile folder` because the
+system protects its default application-data directory. Give the Playwright Firefox process
+a temporary CoreFoundation home instead:
+
+```bash
+mkdir -p "$TMPDIR/playwright-firefox-home"
+CFFIXED_USER_HOME="$TMPDIR/playwright-firefox-home" \
+  mvn -Dmaven.repo.local="$HOME/.m2/repository" \
+  -Dtag=@ui -Dbrowser=firefox -Dheadless=true test
+```
+
+The separate Maven repository setting keeps dependencies in the usual cache.
+macOS may protect the generated `Library` and `Downloads` folders in that temporary home;
+let the system clean them up rather than changing their permissions.
 
 | Problem                                 | What to check                                                           |
 |-----------------------------------------|-------------------------------------------------------------------------|
