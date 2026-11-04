@@ -332,6 +332,35 @@ Ideas for using the framework beyond this demo.
    Parallel workers must not share Playwright objects across threads; the implementation
    needs to keep creation, use, and cleanup on the owning thread.
 
+9. **Compare objects instead of checking fields one by one.**
+
+   Update API assertions to compare transaction objects with AssertJ instead of using
+   nested loops and a switch over field names. For UI checks, add a method that reads
+   the grid as a list of typed rows, such as `TransactionRow`, then compare those objects
+   rather than reading each column separately and checking it with `allMatch()`.
+   Keep expected data separate from assertions. Object comparisons should show which
+   fields differ, with actual and expected values, rather than just a boolean failure.
+
+   The current filter scenarios only specify region/category, not every transaction field.
+   For these checks, compare objects using an explicit list of relevant fields:
+
+   ```java
+   assertThat(actualTransaction)
+       .usingRecursiveComparison()
+       .comparingOnlyFields("region", "category")
+       .isEqualTo(expectedTransaction);
+   ```
+
+   Choose the fields from the scenario's expectations; a region-only scenario should not
+   also assert category. This is a partial object comparison, not a check of the whole
+   transaction.
+
+   For full object comparisons, prepare controlled test records and an independently
+   defined expected list, including IDs, dates, and revenue. Compare all fields and list
+   contents, checking order only when the scenario requires it. Do not build expected
+   values from the actual response or grid, or hide unknown fields with broad ignore rules.
+   Keep the non-empty result checks so an empty response or grid cannot pass a filter test.
+
 ## Troubleshooting
 
 | Problem                                 | What to check                                                           |
