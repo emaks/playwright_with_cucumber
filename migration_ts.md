@@ -1,56 +1,59 @@
-# Міграція на TypeScript + Playwright + Cucumber + Allure
+# Migration to TypeScript + Playwright + Cucumber + Allure
 
-## Статус і межі робіт
+## Status and scope
 
-**Статус: план підготовлено; очікується ревью та підтвердження користувача.**
+**Status:** complete. Stages 2–11 are implemented and verified. The TypeScript framework is
+now the sole implementation at the repository root; the Java implementation was deleted in
+stage 11 and remains available in git history. Firefox UI passes with the documented
+`CFFIXED_USER_HOME` workaround on macOS.
 
-До підтвердження не створюємо реалізацію, не встановлюємо залежності та не змінюємо Java-код.
-Повні права в межах репозиторію не скасовують контрольних точок ревью.
+The user approved implementation through stages 2–10, accepted recommendations D1–D11, and
+then explicitly approved stage 11 (Java deletion and root transfer). The application under
+test remains unchanged. The rules below applied while the work was staged.
 
-- Уся нова реалізація, конфігурація, залежності, локальна документація, перевірки й артефакти
-  виконання розміщуються в `typescript_framework/`.
-- Цей документ знаходиться в root за прямою вимогою користувача.
-- Java-версія залишається робочим еталоном до окремого фінального ревью.
-- `sales-analytics-qa-task/` використовується обома версіями без зміни застосунку.
-- До фінального перенесення не редагуємо root `pom.xml`, `src/`, `.gitignore`, README та
-  наявну документацію; нові правила ignore й інструкції створюємо всередині TS-директорії.
-- Не змінюємо інші проєкти, системні налаштування або глобальні пакети. Додаткові права
-  поза репозиторієм наразі не потрібні. Якщо виникне така потреба, спочатку запитуємо дозвіл.
-- Старий проєкт `ui-automation-testing` уже переглянуто як приклад підходу; не копіюємо його
-  Protractor-залежності, глобальний browser, файловий service locator або fixed sleeps.
-- Не додаємо заплановане в `TESTS_COVERAGE.md` бізнес-покриття: переносимо реалізоване.
-- Не створюємо коміти й не виконуємо push без окремої вказівки.
+- New implementation, configuration, dependencies, local documentation, tests, and
+  generated outputs stay under `typescript_framework/`.
+- This migration record stays at the repository root as explicitly requested.
+- The Java implementation remains the comparison baseline pending separate final review.
+- Both implementations use `sales-analytics-qa-task/` without changing the application.
+- Before stage 11, do not edit root `pom.xml`, `src/`, `.gitignore`, README, or existing
+  documentation. Add staging-specific ignore rules and instructions inside
+  `typescript_framework/`.
+- Do not change other projects, system settings, or globally installed tools. Ask before
+  any action outside the repository or any system-level change.
+- The old `ui-automation-testing` project was reviewed only as an example. Do not copy its
+  Protractor dependencies, global browser, file-based service locator, or fixed sleeps.
+- Do not add business coverage from `TESTS_COVERAGE.md`; migrate only implemented behavior.
+- Do not commit or push unless explicitly asked.
 
-## Як відмічати виконання
+## Completion rules
 
-`[ ]` означає незавершену дію; `[x]` — виконану й перевірену дію.
-Критерії приймання етапу є обов'язковими, а не рекомендаціями.
-Етап не закривається лише тому, що написано код.
+`[ ]` means incomplete; `[x]` means completed and verified. Acceptance criteria are
+mandatory; code existing by itself does not complete a stage.
 
-Після кожного етапу обов'язково оновлюємо цей документ:
+After each stage:
 
-1. Позначаємо лише фактично виконані пункти.
-2. Додаємо запис до журналу з файлами, змінами, перевірками та фактичними результатами.
-3. Пояснюємо, як збережено поведінку Java-версії та чому потрібні відмінності.
-4. Фіксуємо проблеми, незавершені перевірки й наступну дію.
-5. Якщо потрібне нове рішення — пропонуємо конкретні варіанти, отримуємо підтвердження
-   й лише після цього реалізуємо залежну частину.
+1. Check only work actually completed and validated.
+2. Record changed files, changes, commands, actual results, and blockers in the journal.
+3. Explain preserved Java behavior and necessary language/tooling differences.
+4. Record unresolved checks and the next action.
+5. Ask before making any new decision that affects behavior or architecture.
 
-Під час роботи документ ведемо українською. Після всіх погоджених етапів і перевірок
-перекладаємо завершений документ англійською відповідно до contributor guide,
-якщо користувач не погодить іншу мову.
+The plan and progress notes were kept in Ukrainian while implementation was underway.
+After the approved work and its available validation were completed, this record was
+translated to English. Stage 11 was executed after separate explicit approval.
 
-## 0. Перевірений поточний стан
+## 0. Inspected baseline
 
-- [x] Переглянуто Maven-залежності, suites, hooks, конфігурацію та contributor guide.
-- [x] Переглянуто API-контракти, клієнт, Allure-декоратор, моделі, builders і steps.
-- [x] Переглянуто UI wrappers, сторінку, компоненти, PageFactory, lazy lists та їхні тести.
-- [x] Переглянуто обидва feature-файли й правила ArchUnit.
-- [x] Переглянуто `initChild()` і `ElementsArray` у старому TS-проєкті.
-- [ ] Отримано підтвердження плану й рішень із розділу 1.
-- [ ] Виконано Java baseline; фактичне виконання ще не перевірялось у межах цієї міграції.
+- [x] Review Maven dependencies, suites, hooks, configuration, and contributor guide.
+- [x] Review API contracts/client, Allure decorator, models, builders, and steps.
+- [x] Review UI wrappers/pages/components, PageFactory, lazy lists, and tests.
+- [x] Review both feature files and ArchUnit rules.
+- [x] Review `initChild()` and `ElementsArray` in the old TypeScript project.
+- [x] Receive approval for the plan and D1–D11.
+- [x] Run an isolated Java baseline under `typescript_framework/baseline/java`.
 
-Наявна структура залежностей:
+Current dependency flow:
 
 ```text
 Gherkin -> definitions -> steps
@@ -58,372 +61,610 @@ Gherkin -> definitions -> steps
                           |-> TransactionsPage -> components -> controls -> Locator
 
 testsupport -> scenario context, Cucumber hooks, providers, converters
-framework   -> reusable infrastructure, без залежності на application/testsupport
+framework   -> reusable infrastructure; no application/testsupport dependency
 ```
 
-Реалізовано два API-приклади й три UI-приклади: **п'ять виконуваних сценаріїв**.
-Переносимо також підтримку Clear, усіх наявних контролів і filters/builders, навіть якщо
-відповідний метод ще не використано в feature-файлі.
+The baseline contains two API and three UI scenarios: **five executable scenarios**.
+Also migrate existing controls, filters, builders, and methods not currently used by a
+feature.
 
-Важливі інваріанти:
-
-| Поверхня | Поведінка, яку зберігаємо |
+| Area | Behavior to preserve |
 |---|---|
-| Запуск | API/UI suites, Cucumber tag expressions, один worker і один retry за замовчуванням |
-| Браузери | Chromium і Firefox; `headless=false`; viewport 1790 x 1120 |
-| Таймаути | UI 10 000 ms; API 30 000 ms; request timeout `0` вимикає обмеження |
-| API URL | Завершальний `/` у base URL; `transactions` не втрачає `/api` |
-| Request options | Пропуск відсутніх filters; збереження явно заданого порожнього рядка; finite non-negative timeout |
-| Assertions | Непорожні результати та перевірка всіх region/category значень, а не лише першого |
-| UI synchronization | Очікування потрібного GET response до trigger; перевірка HTTP; очікування loading status |
-| Ресурси | Окремий lifecycle на сценарій; API dispose; context close до browser close |
-| Cleanup | Виконати всі дії; не втратити першу й наступні помилки; не перетворювати failure на success |
-| Allure | Request до виклику; resolved URL і response після; stack trace при transport failure |
-| Артефакти | Screenshot failed UI за наявності page; HAR із унікальним ім'ям; Environment; Cucumber JSON |
-| Межі шарів | Framework не імпортує application/testsupport; application API/UI не імпортує testsupport |
+| Execution | API/UI suites and tag expressions; one worker and one retry by default |
+| Browsers | Chromium and Firefox; `headless=false`; 1790 × 1120 viewport |
+| Timeouts | UI 10,000 ms; API 30,000 ms; request timeout `0` disables the timeout |
+| API URL | Normalize the trailing `/`; preserve `/api` when requesting `transactions` |
+| Request options | Omit absent filters; preserve explicit empty string; finite non-negative timeout |
+| Assertions | Require non-empty results and verify all returned region/category values |
+| UI synchronization | Wait for the relevant GET before triggering; check HTTP status and loading state |
+| Resources | Scenario-scoped lifecycle; dispose API; close context before browser |
+| Cleanup | Attempt every action; preserve the first and later errors; never turn failure into success |
+| Allure | Attach request before transport, URL/response after, stack trace on transport failure |
+| Artifacts | Failed-UI screenshot when a page exists; unique HAR; Environment; Cucumber JSON |
+| Layering | Framework cannot import application/testsupport; application API/UI cannot import testsupport |
 
-Документація згадує failed-scenario list, але поточний `cucumber.properties` не містить
-rerun formatter. У TS це буде явно погоджена можливість, а не твердження про наявний Java output.
+The root documentation mentions a failed-scenario list, but the Java
+`cucumber.properties` has no rerun formatter. TypeScript rerun support is an explicitly
+approved capability, not a claim about existing Java output.
 
-## 1. Рішення, що потребують підтвердження
+## 1. Approved decisions (D1–D11)
 
-Наведені рекомендації **ще не є погодженими рішеннями**.
-Ревью може підтвердити всі рекомендації або змінити окремі.
-Якщо відповідь неоднозначна, запитуємо уточнення по одному питанню; не обираємо мовчки.
+The user approved the recommendations below. Concrete package versions were selected by
+checking Node engine requirements and peer dependencies, then pinned in the lockfile.
 
-| ID | Питання | Рекомендація | Альтернатива / компроміс |
-|---|---|---|---|
-| D1 | Runtime та toolchain | Підтримуваний Node.js LTS, npm, ESM, strict TypeScript; компіляція `tsc` перед запуском | CommonJS або прямий TS runtime; додаткова runtime-залежність не потрібна при компіляції |
-| D2 | `@FindBy` | Зберегти декларативний API; сучасні TS-декоратори, явний конструктор, власна невелика PageFactory | Legacy decorators з metadata; або `initChild()`, що змінює стиль оголошень |
-| D3 | Assertions та unit tests | `node:assert/strict` і `node:test` для інфраструктури; зрозумілі assertion messages | Chai для fluent assertions; Vitest, якщо потрібні розширені mocks/runner можливості |
-| D4 | DI | Cucumber World як scenario composition root; окремі providers; constructor injection у services/pages/steps | Scenario-scoped DI-контейнер, наприклад Awilix; більше залежностей і налаштувань |
-| D5 | Конфігурація | JSON-файли середовищ, власний тонкий loader, environment overrides; документований mapping старих ключів | Залишити `.properties` із parser-бібліотекою; більш буквальний перенос формату |
-| D6 | JSON mapping | Явні converters/decoders, перевірки лише потрібної сумісності з Java; не робити blanket `as T` | Zod для схем; сувора валідація всіх полів може змінити прийнятність response |
-| D7 | `BigDecimal revenue` | `decimal.js` і перевірений lossless JSON parser, наприклад `lossless-json`; явний decoder моделі | JS `number` простіший, але не гарантує паритет точності; допустимий лише після окремого схвалення |
-| D8 | Логування | Pino з console output і контекстом scenario/worker | `log4js` ближчий до поточної конфігурації; `console` без окремої бібліотеки простіший |
-| D9 | Архітектурні перевірки | Dependency Cruiser для еквівалентів двох наявних ArchUnit-правил; ESLint для TS | ESLint boundaries замість окремого dependency checker |
-| D10 | Retries і rerun | Default parallel=1, retry=1; override через CLI; rerun formatter та npm script | Retry тільки для `@flaky`, але це відрізняється від поточних defaults |
-| D11 | Allure generation | `allure-cucumberjs`, `allure-js-commons`, локальний CLI; зберегти можливість single-file report | Інший підтримуваний Allure CLI після перевірки сумісності; окремо погодити зміну output |
+| ID | Approved choice |
+|---|---|
+| D1 | Node.js, npm, ESM, strict TypeScript, compile with `tsc` before execution |
+| D2 | Declarative `@FindBy` using standard TypeScript decorators, explicit constructors, and a small owned PageFactory |
+| D3 | `node:assert/strict` and `node:test` for infrastructure tests |
+| D4 | Cucumber World as scenario composition root, small providers, constructor injection |
+| D5 | JSON environment files, thin loader, process/CLI overrides, documented Java-key mapping |
+| D6 | Explicit converters/decoders; no blanket `as T` or new schema rejection rules |
+| D7 | `decimal.js` plus `lossless-json` for precise decimal handling |
+| D8 | Pino logging with credential redaction |
+| D9 | Dependency Cruiser for the two existing ArchUnit boundaries; ESLint for TypeScript |
+| D10 | Default parallelism 1, retry 1, CLI overrides, rerun formatter/script |
+| D11 | `allure-cucumberjs`, `allure-js-commons`, project-local CLI, and single-file report |
 
-Конкретні сумісні версії обираємо та фіксуємо lockfile на етапі 2 після перевірки
-Node engines, peer dependencies, decorators і можливостей Allure CLI.
-Не встановлюємо довільні `latest` без перевірки.
-Якщо single-file generation потребує JVM, явно документуємо це: міграція тестового коду
-на TS не означає автоматичного усунення JVM із генерації звітів.
+The final tested toolchain is Node `26.0.0`, npm `11.12.1`, Cucumber `13.3.0`, Playwright
+`1.64.1`, TypeScript `5.9.3`, ESLint `10.14.0`, and `typescript-eslint` `8.72.1`.
+`package.json` supports Node `^24.0.0 || >=26.0.0`. Allure's CLI wrapper additionally
+requires Java 8+ to generate HTML; compiling and running the TypeScript tests does not
+require Maven or the Java framework.
 
-## 2. Baseline і автономний TS skeleton
+## 2. Baseline and standalone TypeScript skeleton
 
-**Передумова:** підтверджені D1 та загальний план.
+**Prerequisite:** approved D1 and overall plan.
 
-- [ ] Перевірити доступні Node/npm/Java/Maven і стан worktree; не змінювати сторонні правки.
-- [ ] Узгодити місце Java baseline artifacts: копія Java-проєкту й outputs всередині
-      `typescript_framework/`, без використання root `target/` для цієї міграції.
-- [ ] Запустити API/UI Java baseline проти незміненого застосунку; записати п'ять сценаріїв,
-      браузер, tags, timeouts та фактичні результати. Якщо baseline failed — зафіксувати,
-      відокремити pre-existing defect і погодити вплив, не виправляти застосунок мовчки.
-- [ ] Виконати наявні PageFactory й architecture tests; зберегти baseline їхніх результатів.
-- [ ] Створити TS manifest, lockfile, tsconfig, локальний `.gitignore` та README.
-- [ ] Підготувати build/typecheck/lint/unit/cucumber scripts з cwd у TS-директорії.
-- [ ] Зафіксувати всі output paths усередині TS-директорії; не писати в root `target/`.
-- [ ] Копіювати feature-файли без редагування тексту, tags і Examples.
-- [ ] Перевірити discovery через dry-run; очікується рівно п'ять сценаріїв.
-- [ ] Перевірити clean install і compilation skeleton; не встановлювати глобальні tools.
+- [x] Check available Node/npm/Java/Maven and worktree without altering unrelated changes.
+- [x] Keep the Java baseline copy and outputs inside `typescript_framework/`, not root `target/`.
+- [x] Run both Java API/UI suites against the unchanged application and record five scenarios,
+  browser, tags, timeouts, and actual results; do not silently fix baseline/application defects.
+- [x] Run and retain baseline PageFactory and architecture test results.
+- [x] Create TypeScript package manifest/lockfile, tsconfig, local `.gitignore`, and README.
+- [x] Add build/typecheck/lint/unit/Cucumber scripts rooted in the TypeScript directory.
+- [x] Keep all project outputs inside the staging directory.
+- [x] Copy feature files without editing text, tags, or Examples.
+- [x] Verify dry-run discovery finds exactly five scenarios.
+- [x] Verify clean install and skeleton compilation without globally installing tools.
 
-Цільова структура до фінального перенесення:
+Target structure before the final transfer:
 
 ```text
 typescript_framework/
-  package.json
-  package-lock.json
-  tsconfig.json
-  cucumber.mjs
-  .gitignore
-  README.md
-  src/
-    framework/
-      api/clients/
-      config/
-      json/
-      lifecycle/
-      playwright/
-      reporting/allure/
-      ui/control/
-      ui/pagefactory/
-    salesanalytics/
-      api/models/
-      ui/component/
-      steps/api/
-      steps/ui/
-      definitions/api/
-      definitions/ui/
-    testsupport/
-      context/
-      cucumber/api/
-      cucumber/ui/
+  package.json, package-lock.json, tsconfig.json, cucumber.mjs, .gitignore, README.md
+  src/{framework,salesanalytics,testsupport}/
   resources/configs/
-  features/be/
-  features/fe/
-  tests/architecture/
-  tests/framework/
-  tests/acceptance/
+  features/{be,fe}/
+  tests/{architecture,framework,acceptance}/
   scripts/
-  dist/                         # generated, ignored
-  target/                       # generated, ignored; baseline/results/HAR/rerun
-  allure-report/                # generated, ignored
+  dist/                 # generated, ignored
+  target/               # generated, ignored; baseline/results/HAR/rerun
+  allure-report/         # generated, ignored
 ```
 
-**Приймання:** TS-проєкт автономно встановлюється й компілюється; Java baseline
-зафіксовано або його блокер явно погоджено; feature discovery не змінено.
+**Acceptance:** the TypeScript project installs/compiles independently; Java baseline is
+recorded or its blocker is approved; feature discovery is unchanged.
 
-## 3. Конфігурація, JSON і cleanup
+## 3. Configuration, JSON, decimal, cleanup, and logging
 
-**Передумови:** етап 2; підтверджені D5-D8.
+**Prerequisite:** stage 2; approved D5–D8.
 
-- [ ] Перенести env selection, defaults та override precedence.
-- [ ] Зберегти значення `local`; окремо відобразити CLI parameters Cucumber на Environment.
-- [ ] Помилка відсутнього env-файлу має бути явною; не підставляти `local` мовчки.
-- [ ] Перенести JSON serialization і conversion; перевірити `<empty>`, null/omitted values
-      та numeric conversion там, де це підтримувала Java-версія.
-- [ ] Узгодити contract decoder із Jackson: не додавати нові schema rejection rules без підтвердження.
-- [ ] Перевірити lossless decimal parsing/serialization без проміжного округлення через JS `number`.
-- [ ] Перенести асинхронний cleanup: виконати всі actions у заданому порядку, зберегти
-      первинну помилку й наступні помилки в документованому error representation.
-- [ ] Налаштувати логування без витоку secrets і без приховування помилок.
-- [ ] Додати unit tests: overrides, missing env, invalid timeout, nullable/empty values,
-      decimal precision, кілька cleanup failures та success path.
+- [x] Migrate environment selection, defaults, and override precedence.
+- [x] Preserve `local` values and expose effective Cucumber CLI values in Allure Environment.
+- [x] Fail explicitly for a missing environment file; do not silently fall back to local.
+- [x] Migrate JSON serialization/conversion, including empty, null, omitted, and supported numeric values.
+- [x] Match the Jackson contract without adding unapproved schema rejection.
+- [x] Verify decimal parsing/serialization without rounding through JavaScript `number`.
+- [x] Make cleanup asynchronous while preserving order, primary error, and later errors.
+- [x] Configure logging without leaking secrets or hiding failures.
+- [x] Test overrides, missing environment, invalid timeout, nullable/empty values, decimal precision,
+  multiple cleanup failures, and success.
 
-**Приймання:** конфігурація еквівалентна за змістом; decimal precision не втрачена;
-cleanup не обриває решту дій і не маскує failures.
+**Acceptance:** configuration is equivalent in meaning, decimal precision is preserved,
+and cleanup attempts every action without masking failures.
 
-## 4. Playwright session і API framework
+## 4. Playwright session and API framework
 
-**Передумови:** етап 3.
+**Prerequisite:** stage 3.
 
-- [ ] Перенести PlaywrightSession зі scenario-scoped resource ownership.
-- [ ] Зберегти Chromium/Firefox, headless default, viewport та UI timeout.
-- [ ] Створювати APIRequestContext без запуску браузера для API-only сценарію.
-- [ ] Зберегти URL normalization, API default timeout та request override.
-- [ ] Перенести ApiClient, ApiRequestOptions і ApiResponse, використовуючи Promise для I/O.
-- [ ] Залишити ApiResponse Playwright-backed; не реалізовувати відкладений roadmap
-      transport-neutral response в межах міграції.
-- [ ] Зберегти defensive copy request parameters і omission semantics.
-- [ ] Перенести provider chain `AllureApiClient -> PlaywrightApiClient`.
-- [ ] Закривати API context через client; UI context до browser; не дублювати ownership.
-- [ ] Використовувати унікальні HAR paths на scenario attempt.
-- [ ] Додати тести URL resolution, params, timeout=0, HTTP response, transport failure,
-      partial initialization та cleanup failure.
+- [x] Migrate scenario-scoped `PlaywrightSession`.
+- [x] Preserve Chromium/Firefox, headed default, viewport, and UI timeout.
+- [x] Create `APIRequestContext` without launching a browser for API-only scenarios.
+- [x] Preserve URL normalization, API default timeout, and per-request override.
+- [x] Migrate `ApiClient`, `ApiRequestOptions`, and Playwright-backed `ApiResponse` using Promises.
+- [x] Do not implement the deferred transport-neutral response roadmap item.
+- [x] Preserve defensive parameter copies and omission semantics.
+- [x] Migrate `AllureApiClient -> PlaywrightApiClient` composition.
+- [x] Dispose API context through the client; close UI context before browser; avoid duplicate ownership.
+- [x] Use unique HAR paths per scenario attempt.
+- [x] Test URL resolution, query parameters, timeout `0`, HTTP response, transport failure,
+  partial initialization, and cleanup failure.
 
-**Приймання:** API-only run не відкриває браузер; правильний `/api/transactions`;
-success/error behavior і порядок закриття збережені.
+**Acceptance:** API-only runs do not launch browsers; `/api/transactions`, success/error behavior,
+and cleanup ordering are preserved.
 
-## 5. Декоратори `@FindBy`, PageFactory і lazy collections
+## 5. `@FindBy`, PageFactory, and lazy collections
 
-**Передумови:** етап 4; підтверджений D2.
+**Prerequisite:** stage 4; approved D2.
 
-Спершу доводимо життєздатність декораторів на мінімальному прикладі в реальному
-toolchain. Не замінюємо їх на `initChild()` автоматично, якщо прототип не вдався.
+First prove the decorators in the real toolchain. Do not automatically replace them with
+`initChild()` if the prototype fails.
 
-- [ ] Перевірити сучасні decorators, field/accessor initialization та успадкування.
-- [ ] Визначити єдиний контракт створення сторінок/компонентів після готовності PageWrapper:
-      не ініціалізувати поля підкласу з BasePage constructor так, щоб вони перезаписувались.
-- [ ] Реалізувати class selector metadata й explicit constructor reference для полів.
-- [ ] Зберегти field selector precedence над class selector; fallback class selector.
-- [ ] Задокументувати TS-відмінність: сам тип поля без декоратора не доступний у runtime;
-      для class-selector fallback потрібна явна реєстрація поля, наприклад декоратор із
-      конструктором без selector. Конкретний API погоджується в рамках D2.
-- [ ] Реалізувати raw Locator leaf і вкладені wrappers/components з parent-scoped selectors.
-- [ ] Не виконувати DOM reads/actions під час фабричної ініціалізації.
-- [ ] Перенести lazy typed collection як окремий API, а не удаваний синхронний JS Array:
-      async count/isEmpty/snapshot; повторна резолюція на наступній операції.
-- [ ] Перевірити snapshot membership після додавання DOM-вузлів; не обіцяти стабільну
-      ідентичність вузла при перестановці/видаленні positional Locator-ів, чого не гарантує Java.
-- [ ] Перевірити успадкування metadata без її витоку до sibling subclasses.
-- [ ] Зберегти cycle diagnostics із field chain, selector і причиною.
-- [ ] Відхиляти invalid declarations; Java final/raw/wildcard-specific checks замінити
-      відповідними TS compile-time/runtime перевірками, а не фіктивним reflection.
-- [ ] Перенести всі поведінкові кейси `PageFactoryTest`, включно з real Chromium DOM test.
+- [x] Verify modern decorators, field/accessor initialization, and inheritance.
+- [x] Define initialization after `PageWrapper`/component construction, avoiding superclass
+  initialization that would be overwritten by subclass fields.
+- [x] Implement class-selector metadata and explicit constructor references for fields.
+- [x] Preserve field-selector precedence and class-selector fallback.
+- [x] Document that TypeScript does not retain ordinary field types at runtime; fallback fields
+  need explicit declaration/constructor metadata.
+- [x] Implement raw `Locator` leaves and nested wrappers/components with parent-scoped selectors.
+- [x] Perform no DOM reads/actions during factory initialization.
+- [x] Use a dedicated async typed collection API, not a fake synchronous JavaScript array.
+- [x] Verify snapshot membership after DOM insertion; do not promise node identity across
+  reorder/removal of positional locators.
+- [x] Verify inherited metadata does not leak to sibling subclasses.
+- [x] Preserve cycle diagnostics with field chain, selector, and reason.
+- [x] Reject invalid declarations using actual TypeScript compile-time/runtime checks instead of
+  nonexistent reflection checks for Java final/raw/wildcard declarations.
+- [x] Migrate PageFactory behavior tests to async TypeScript APIs, including real Chromium DOM tests.
 
-**Приймання:** типізовані компоненти створюються без DOM queries; precedence, nested
-scoping, collections та diagnostics підтверджені тестами; decorators не залежать
-від `as any`, прихованих globals чи непідтверджених compiler flags.
+**Acceptance:** typed components initialize without DOM queries; precedence, nested scoping,
+collections, and diagnostics are tested; decorators need no hidden globals, `as any`, or
+unsupported compiler flags.
 
-## 6. Sales Analytics API/UI та test steps
+## 6. Sales Analytics API/UI and test steps
 
-**Передумови:** етап 5; підтверджений D3.
+**Prerequisite:** stage 5; approved D3.
 
-- [ ] Перенести TransactionFilter, TransactionFilters і RequestOptionsBuilder.
-- [ ] Перенести TransactionsResponse, включно з meta/filter fields і decimal revenue.
-- [ ] Перенести TransactionsService без Allure/Cucumber залежностей.
-- [ ] Перенести PageWrapper, BasePage, Button, Dropdown та Table.
-- [ ] Перенести TransactionsPage, Filters і TransactionsGrid зі всіма поточними методами.
-- [ ] Зберегти selectors, header mapping, trimming, select-by-value, Apply і Clear.
-- [ ] Зареєструвати response wait до click; перевірити endpoint, GET і HTTP status.
-- [ ] Зберегти loading synchronization без sleeps. Виявлені baseline race conditions
-      описати й погодити окремо, не міняти поведінку під виглядом переносу.
-- [ ] Перенести API/UI steps; assertions мають залишатися у steps, не у controls/services.
-- [ ] Перевірити positive і negative paths, непорожні результати й усі значення filters.
-- [ ] Порівняти перелік публічних операцій Java/TS; не пропустити невикористані в features методи.
+- [x] Migrate `TransactionFilter`, `TransactionFilters`, and `RequestOptionsBuilder`.
+- [x] Migrate `TransactionsResponse`, metadata/filter fields, and decimal revenue.
+- [x] Migrate `TransactionsService` without Allure/Cucumber dependencies.
+- [x] Migrate `PageWrapper`, `BasePage`, `Button`, `Dropdown`, and `Table`.
+- [x] Migrate `TransactionsPage`, `Filters`, and `TransactionsGrid`, including all current methods.
+- [x] Preserve selectors, header mapping, trimming, select-by-value, Apply, and Clear.
+- [x] Register response wait before click; verify endpoint, GET, and HTTP status.
+- [x] Preserve loading synchronization without sleeps; describe and separately approve any baseline race.
+- [x] Migrate API/UI steps; keep assertions in steps, not controls/services.
+- [x] Verify positive/negative paths, non-empty results, and every filter value.
+- [x] Compare public Java/TypeScript operations; do not omit methods unused by features.
 
-**Приймання:** application layer функціонально еквівалентний; API/UI operations
-не знають про lifecycle/container; бізнес-assertions залишилися в тестовому шарі.
+**Acceptance:** application layer is functionally equivalent; API/UI operations do not know
+about lifecycle/container; business assertions remain in the test layer.
 
-## 7. Cucumber World, definitions, hooks і suite profiles
+## 7. Cucumber World, definitions, hooks, and profiles
 
-**Передумови:** етап 6; підтверджений D4.
+**Prerequisite:** stage 6; approved D4.
 
-- [ ] Створити scenario-scoped World і providers; constructor injection у звичайних класах.
-- [ ] Зберегти роль Context/ContextKey; не вводити непогоджений context redesign.
-- [ ] Врахувати async initialization і готовність page перед PageFactory/provider wiring.
-- [ ] Не створювати API/browser resources для сценаріїв, що їх не потребують.
-- [ ] Перенести definitions без зміни Gherkin expressions.
-- [ ] Замість JVM DataTable transformers додати явні JS adapters із тим самим
-      mapping: transpose filters, case-insensitive enum names, `<empty>`.
-- [ ] Перенести shared status-code definition та @api/@ui hooks.
-- [ ] Визначити behavior змішаних tags без double disposal; поточні features мають один тип.
-- [ ] Створити API/UI profiles за feature paths, tag overrides і default all-scenarios profile.
-- [ ] Зберегти Cucumber JSON і summary; вимкнути external publishing.
-- [ ] Перевірити dry-run і послідовний запуск п'яти сценаріїв.
+- [x] Create scenario-scoped World/providers with constructor injection in ordinary classes.
+- [x] Preserve the role of `Context`/`ContextKey`; do not redesign scenario state.
+- [x] Respect async initialization and wait until the page is ready before PageFactory/provider wiring.
+- [x] Do not create API/browser resources a scenario does not need.
+- [x] Migrate definitions without changing Gherkin expressions.
+- [x] Replace JVM DataTable transformers with explicit JS adapters preserving transposition,
+  case-insensitive enum names, and `<empty>`.
+- [x] Migrate shared status-code definition and `@api`/`@ui` hooks.
+- [x] Define mixed-tag behavior without double disposal; current features have one scenario type each.
+- [x] Add API/UI path profiles, tag overrides, and default all-scenarios profile.
+- [x] Preserve Cucumber JSON/summary and disable external publishing.
+- [x] Verify dry-run and serial execution of all five scenarios.
 
-**Приймання:** API=2, UI=3, all=5; відсутні undefined/ambiguous bindings;
-World і ресурси не спільні між сценаріями.
+**Acceptance:** API=2, UI=3, all=5; no undefined/ambiguous bindings; World/resources are
+not shared across scenarios.
 
-## 8. Allure і артефакти
+## 8. Allure and artifacts
 
-**Передумови:** етап 7; підтверджений D11.
+**Prerequisite:** stage 7; approved D11.
 
-- [ ] Налаштувати Cucumber formatter та Allure runtime API із сумісними версіями.
-- [ ] Прикріпляти request до transport call; URL/response після; failure stack trace й rethrow.
-- [ ] Прикріпляти screenshot лише при failed UI з доступною page, до cleanup.
-- [ ] Перевірити збереження screenshot/attachment error разом із cleanup error.
-- [ ] Записувати effective Environment без конкурентного перезаписування worker-ами.
-- [ ] Перевірити tags/labels/links: не вигадувати Jira/TestRail mappings, яких немає у Java.
-- [ ] Додати generate/serve та підтверджений single-file command.
-- [ ] Перевірити відсутність змішування baseline Java й TS results.
-- [ ] Перевірити attachment contents, існування файлів, валідність JSON і згенерований report.
+- [x] Configure compatible Cucumber formatter and Allure runtime.
+- [x] Attach request before transport, URL/response after, and failure stack trace before rethrow.
+- [x] Attach screenshot only for failed UI scenarios with an available page, before cleanup.
+- [x] Verify attachment/cleanup error preservation through the shared cleanup contract and hooks.
+- [x] Write effective Environment once, without concurrent worker overwrites.
+- [x] Check tags/labels/links without inventing Java-absent Jira/TestRail mappings.
+- [x] Add report generation/opening and verify the single-file command.
+- [x] Keep Java baseline and TypeScript results separate.
+- [x] Verify attachment contents/files, JSON validity, and generated report.
 
-**Приймання:** звіт реально генерується й містить потрібні дані; жодна reporting
-помилка не прихована; HAR finalization і screenshot підтверджені файлами.
+**Acceptance:** reports contain the required data; reporting errors are not hidden; HAR
+finalization and screenshots are verified as files.
 
-## 9. Parallel, retries і failed-only rerun
+## 9. Parallelism, retries, and failed-only rerun
 
-**Передумови:** етап 8; підтверджений D10.
+**Prerequisite:** stage 8; approved D10.
 
-- [ ] Реалізувати default parallel=1/retry=1 та CLI overrides.
-- [ ] Підготувати контрольовані fixtures під `tests/acceptance/`, не змінюючи application features.
-- [ ] Показати фактичне перекриття інтервалів виконання мінімум двох сценаріїв;
-      одного `--parallel 2` у команді недостатньо як доказ.
-- [ ] Довести World/context/page/API isolation та відсутність attachment/HAR collisions.
-- [ ] Перевірити failed-first/passed-second: рівно дві спроби, нові ресурси й повтор hooks.
-- [ ] Перевірити permanently failed: максимум дві спроби й non-zero exit status.
-- [ ] Перевірити retry=0 та, якщо погоджено, retry tag filter.
-- [ ] Перевірити failed UI screenshots і HAR для різних attempts.
-- [ ] Перевірити Allure retry grouping: одна logical test identity, видимі попередні
-      attempts; не включати attempt ID до history identity.
-- [ ] Додати rerun formatter; перевірити failed-only selection для Scenario Outline row.
-- [ ] Використовувати rerun-файл із basename, що починається на `@`, наприклад
-      `target/@rerun.txt`, згідно з вимогами обраної Cucumber.js версії.
-- [ ] Перевірити порожній rerun: нуль сценаріїв, без випадкового запуску all profile.
-- [ ] Не запускати rerun через `&&` після failed main run; scripts мають свідомо обробляти
-      exit codes і не маскувати кінцевий failure.
-- [ ] Виконати одночасний parallel+retry прогін; перевірити звіт і cleanup.
+- [x] Implement defaults `parallel=1` / `retry=1` and CLI overrides.
+- [x] Add controlled acceptance fixtures under `tests/acceptance/`, not application features.
+- [x] Prove actual overlap of at least two scenario execution intervals.
+- [x] Prove World/context/page/API isolation and no attachment/HAR collisions.
+- [x] Test failed-first/passed-second: exactly two attempts, fresh resources, repeated hooks.
+- [x] Test permanent failure: at most retry+1 attempts and non-zero exit.
+- [x] Test `retry=0`; no retry-specific tag filter was selected (D10 keeps global retry).
+- [x] Test failed UI screenshots and distinct HAR per attempt.
+- [x] Verify Allure retry grouping: same logical test identity/history across attempts.
+- [x] Add rerun formatter and verify failed-only selection of one Scenario Outline row.
+- [x] Use a rerun filename beginning with `@`, e.g. `target/@rerun.txt`.
+- [x] Verify absent/empty rerun selects zero scenarios, not the all-scenarios profile.
+- [x] Do not chain rerun after a failing main run with `&&`; preserve exit codes deliberately.
+- [x] Run parallel+retry together and verify report/cleanup.
 
-**Приймання:** доведені concurrency, isolation, attempt count, failed-only selection
-та коректні exit codes. Синтетичні failures не забруднюють основний Allure report.
+**Acceptance:** concurrency, isolation, attempt count, failed-only selection, and exit codes
+are demonstrated; synthetic failures do not pollute the main Allure report.
 
-## 10. Архітектура, документація й повний паритет
+## 10. Architecture, documentation, and parity
 
-**Передумови:** етап 9; підтверджений D9.
+**Prerequisite:** stage 9; approved D9.
 
-- [ ] Відтворити два чинні ArchUnit boundary rules для TS imports.
-- [ ] Перевірити checker навмисним invalid import у fixture; позитивного запуску недостатньо.
-- [ ] Перевірити typecheck, lint, unit/integration/acceptance tests.
-- [ ] Виконати API, Chromium UI та Firefox UI; послідовно й у parallel режимі.
-- [ ] Перевірити headed default, headless override, tags та suite profiles.
-- [ ] Порівняти Java/TS scenario names, tags, filters, counts, status і assertions.
-- [ ] Порівняти звіти за змістом, не вимагати побайтової рівності timestamps/UUID/layout.
-- [ ] Підготувати локальний README і contributor guide: setup, configuration mapping,
-      PageFactory API, lifecycle, commands, retries, rerun, reports та troubleshooting.
-- [ ] Не стверджувати, що tests запущено, якщо перевірено лише compilation/dry-run.
-- [ ] Перевірити clean install без глобальних npm tools і outputs поза TS-директорією.
-- [ ] Підготувати exact file manifest фінального перенесення та перелік Java-only deletion paths.
-- [ ] Підготувати mapping наявної roadmap документації; не втратити незавершені рішення.
-- [ ] Надати користувачу підсумок, відмінності, blockers і команди перевірки для ревью.
+- [x] Reproduce the two existing ArchUnit import boundaries.
+- [x] Prove a deliberate invalid import is rejected; a positive run alone is insufficient.
+- [x] Run typecheck, lint, unit/integration/acceptance tests.
+- [x] Run API and Chromium UI serially; run the full suite in parallel. API and Chromium pass
+  in the required profiles.
+- [x] Run Firefox UI serially and in parallel; passes on macOS with a temporary
+  `CFFIXED_USER_HOME` (verified during stage 11, see journal).
+- [x] Verify headed default, headless override, tags, and suite profiles.
+- [x] Compare Java/TypeScript scenario names, tags, filters, counts, status, and assertions.
+- [x] Compare report meaning without requiring identical timestamps/UUIDs/layout.
+- [x] Create local README/contributor guide for setup, config mapping, PageFactory, lifecycle,
+  commands, retries, rerun, reports, and troubleshooting.
+- [x] Do not claim tests ran based only on compile/dry-run.
+- [x] Verify clean install without global npm tools and project outputs outside staging.
+- [x] Prepare exact transfer manifest and Java-only deletion-path inventory.
+- [x] Map existing roadmap documents without losing unresolved decisions.
+- [x] Prepare review summary, differences, blockers, and verification commands.
 
-**Приймання:** усі перевірки виконано або винятки явно погоджено; TS працює автономно;
-Java ще не видалено; є точний manifest для наступного етапу.
+**Acceptance:** all checks pass or exceptions are explicit; TypeScript runs autonomously;
+Java remains undeleted; the next stage has an exact manifest.
 
-## 11. Фінальне ревью та перенесення в root
+## 11. Final review and transfer to repository root
 
-**Окрема контрольна точка:** лише після підтвердження користувачем реалізації та manifest.
-Ревью плану не є автоматичним дозволом виконати цей етап.
+**Separate approval gate:** do not begin until the user explicitly approves the completed
+implementation and manifest. Review of this plan is not approval for stage 11.
 
-- [ ] Отримати явне підтвердження видалення Java й перенесення.
-- [ ] Перевірити актуальний worktree і конфлікти з новими root файлами.
-- [ ] Зберегти досяжну Git-версію Java; не робити destructive rollback commands.
-- [ ] Перенести лише файли погодженого manifest; не переносити node_modules, baseline,
-      dist, HAR, results або Allure report як source files.
-- [ ] Видалити тільки погоджені Java source/resource/build файли за точними paths;
-      не видаляти root чи весь `src/` рекурсивно без інвентаризації.
-- [ ] Перенести TS configuration/resources/features/scripts і оновити cwd-relative paths.
-- [ ] Інтегрувати root `.gitignore`, README, contributor guide та roadmap documentation,
-      зберігши незалежні матеріали й `sales-analytics-qa-task/`.
-- [ ] Зберегти `TESTS_COVERAGE.md`, якщо ревью не вимагає іншого; це бізнес-план, не Java-код.
-- [ ] Повторно виконати install/build/typecheck/lint/tests, API/UI, parallel+retry,
-      rerun та Allure generation вже з root.
-- [ ] Прибрати лише власні тимчасові файли за відомими paths.
-- [ ] Видалити TS staging-директорію лише після перевірки відсутності потрібних файлів.
-- [ ] Завершити журнал, відмітити фактичні результати й погоджені відмінності.
-- [ ] Перекласти завершену документацію згідно з погодженою мовною вимогою.
+- [x] Obtain explicit approval to delete Java and move TypeScript.
+- [x] Recheck current worktree and conflicts with root files.
+- [x] Preserve reachable Git history for Java; do not run destructive rollback commands.
+- [x] Transfer only approved manifest files; exclude `node_modules`, baseline, dist, HAR,
+  results, and Allure reports.
+- [x] Delete only specifically approved Java source/resource/build paths; do not recursively
+  remove root or `src/` without a fresh inventory.
+- [x] Move TypeScript configuration/resources/features/scripts and update cwd-relative paths.
+- [x] Merge root `.gitignore`, README, contributor guide, and roadmap docs while preserving
+  independent materials and `sales-analytics-qa-task/`.
+- [x] Preserve `TESTS_COVERAGE.md` unless review decides otherwise; it is a business test plan,
+  not Java implementation.
+- [x] Repeat install/build/typecheck/lint/tests, API/UI, parallel+retry, rerun, and Allure from root.
+- [x] Remove only known temporary files created by the approved transfer.
+- [x] Remove the staging directory only after proving no required files remain.
+- [x] Finish the journal and record actual results/approved differences.
+- [x] Translate completed documentation as required.
 
-**Приймання:** root є єдиним робочим TS framework; Java видалено тільки після ревью;
-команди й звіти працюють після зміни розміщення; застосунок не змінено.
+**Acceptance:** root is the sole TypeScript framework; Java is deleted only after review;
+commands/reports work from the new location; the application is unchanged.
 
-## Блокери та правило отримання підтвердження
+## Blockers and confirmation rule
 
-Якщо не вистачає даних, зупиняємо залежну дію, додаємо блокер сюди й ставимо конкретне
-питання з варіантами. Можна продовжувати незалежні погоджені частини.
+If data is missing, stop only the dependent action, record the blocker, and ask a specific
+question with options. Continue independent approved work.
 
-Обов'язково запитуємо перед:
+Ask before changing assertions, synchronization, lifecycle/timeouts, decimal/JSON behavior,
+element declaration style, Firefox/single-file/retry/rerun support, existing methods,
+pre-existing Java/application defects, CI, external/system/global changes, or the final
+Java deletion/root transfer.
 
-- зміною assertions, synchronization, lifecycle або timeout defaults;
-- округленням decimal до `number` чи зміною JSON validation contract;
-- заміною декораторів на інший спосіб оголошення елементів;
-- відмовою від Firefox, single-file report, retries/rerun або частини існуючих методів;
-- виправленням pre-existing Java/application defects;
-- створенням CI workflow, якщо поточний репозиторій не задає вимог до CI;
-- діями поза репозиторієм, системними змінами або глобальними установками;
-- фінальним видаленням Java й перенесенням у root.
+Resolved blocker: Firefox 157.0 could not initialize its profile on this macOS host with the
+default CoreFoundation home. Running with `CFFIXED_USER_HOME="$TMPDIR/playwright-firefox-home"`
+(the workaround already documented for Java) resolves it without weakening system security.
 
-## Журнал виконання
+## Execution journal
 
-### 2026-11-05 — підготовка плану
+### 2026-11-05 — plan preparation
 
-- **Виконано:** read-only інвентаризацію поточної реалізації та старого TS-прикладу;
-  створено цей план із checklist, gates і критеріями приймання.
-- **Пояснення:** логічні шари зберігаємо; заміна JVM-механізмів DI/reflection/runner
-  є необхідною мовною адаптацією, а не приводом реалізувати сторонній roadmap.
-- **Виявлені нюанси:** `BigDecimal` потребує окремого рішення щодо точності; TS не може
-  автоматично знайти тип неанотованого поля; lazy collection operations стають async;
-  Java BasePage initialization order не можна копіювати буквально; rerun output наразі
-  описаний у README, але не налаштований у Cucumber plugins.
-- **Перевірки:** перегляд коду й конфігурації. Тести, build, install і report generation
-  не запускались. Java-код і застосунок не змінювались.
-- **Блокер:** потрібне ревью плану та підтвердження D1-D11.
-- **Наступна дія:** після підтвердження — етап 2; фінальне перенесення залишається за
-  окремою контрольною точкою.
+- **Done:** read-only review of the current implementation and old TypeScript example;
+  created the staged plan, checklist, gates, and acceptance criteria.
+- **Reasoning:** preserve logical layers; replacing JVM DI/reflection/runner mechanisms is
+  a necessary language adaptation, not permission to implement unrelated roadmap ideas.
+- **Findings:** `BigDecimal` precision needs a deliberate choice; TypeScript cannot discover
+  ordinary field types at runtime; lazy collection operations become async; Java
+  `BasePage` initialization order cannot be copied literally; Java docs mention rerun but
+  its Cucumber config has no rerun formatter.
+- **Verification:** source/config review only. No tests, builds, install, or report generation.
+  Java and application were not changed.
+- **Blocker/next:** await user review/approval of D1–D11; then stage 2. Stage 11 remains separate.
 
-### Шаблон запису після кожного наступного етапу
+### 2026-11-05 — stage 2: baseline and TypeScript skeleton
+
+- **Approved decisions:** D1–D11: Node ESM/strict TypeScript, standard decorators,
+  `node:test`, World composition root, JSON config, lossless decimals, Pino, Dependency
+  Cruiser, and Allure Cucumber.js. Initial dependency selection was checked against engines
+  and peers; ESLint 9.39.5 was used because the then-pinned `typescript-eslint@8.46.4`
+  peer range excluded ESLint 10. Stage 10 later refreshed these pins after checking current
+  supported releases.
+- **Checklist:** every stage-2 item completed.
+- **Files:** TypeScript package/lock, tsconfig, local ignore/config, Cucumber/ESLint config,
+  initial README, local config, clean script, smoke test, copied feature files, and isolated
+  Java baseline under `baseline/java/`.
+- **Changes/behavior:** created a standalone project with local dependency/output paths;
+  copied Gherkin unchanged; did not change Java or the application.
+- **Java parity:** same two API and three UI scenarios against the local app, headless
+  Chromium; retained Java config and reports in `baseline/java/`.
+- **Verification (cwd noted):**
+  - `mvn -B test -Dheadless=true`, `typescript_framework/baseline/java`: BUILD SUCCESS;
+    5/5 scenarios passed; ArchitectureTest 2/2 and PageFactoryTest 11/11 passed.
+  - `npm ci --no-audit --no-fund`, build/lint/unit, `typescript_framework`: clean install,
+    compilation/lint, and initial smoke test 1/1 passed.
+  - Cucumber dry-run found five scenarios (18 TS summary steps); Java baseline summary
+    showed 26 steps. The count difference was to be revisited after migration.
+  - Runtime: Node 26.0.0, npm 11.12.1, Java 27.0.1, Maven 3.10.0; local API returned HTTP 200.
+- **Differences/issues:** architecture command was not yet applicable before its config existed;
+  the initial lint had no TS files, so a runtime smoke test was added. ESLint 9 later emitted
+  a deprecation warning and was upgraded in stage 10.
+- **Status/next:** complete; stage 3.
+
+### 2026-11-05 — stage 3: config, JSON/decimal, cleanup, logging
+
+- **Decisions:** JSON `configs/{env}.json`; runtime overrides above file values; explicit
+  decoders; `Decimal` + `lossless-json`; asynchronous ordered cleanup with primary and
+  suppressed errors; Pino credential redaction.
+- **Checklist:** config loader/missing-file error, JSON helpers/contract, lossless decimal,
+  cleanup/logging, and focused unit tests.
+- **Files:** `PropertyLoader.ts`, `ObjectMapperUtils.ts`, `Cleanup.ts`, `Logger.ts`,
+  `config-json-cleanup.test.ts`, package lint scripts.
+- **Behavior:** missing env is explicit; JSON preserves empty/null/omitted values and safe
+  integers; decimal avoids JS-number rounding; cleanup awaits every action and preserves
+  later errors; non-Error primary failures use `CleanupError`.
+- **Verification:** build and lint passed; 9/9 unit tests passed, including decimal round-trip,
+  multiple cleanup errors, and redaction.
+- **Differences/blockers:** Java `BigDecimal`/Jackson reflection became `Decimal` and explicit
+  decoders. Allure CLI parameter Environment check was deferred to stages 7–8; timeout test
+  followed with API options in stage 4.
+- **Status/next:** base implementation complete; remaining dependent checks completed in
+  stages 4 and 8. Next stage 4.
+
+### 2026-11-05 — stage 4: Playwright session and API framework
+
+- **Decisions:** Playwright Node has public browser/API context lifecycle APIs but no per-session
+  `Playwright.close()` equivalent; API context belongs to client; close UI context before
+  browser; keep Playwright-backed response.
+- **Checklist/files:** all stage-4 items; API contracts/options/response, Playwright transport,
+  session, Allure decorator/provider, API client tests.
+- **Behavior:** async API contract, defensive query copy, timeout validation, details/body
+  decoder, API-only context, `/api/` URL normalization, unique timestamp+UUID HAR.
+- **Java parity:** API 30,000 ms, UI 10,000 ms, timeout `0`, Chromium/Firefox, headed default,
+  1790 × 1120 viewport, query omission/empty semantics, error propagation, context-before-browser.
+- **Verification:** build/lint passed; 14/14 unit tests; HTTP test confirmed query serialization,
+  `/api/transactions`, URL/status/headers/body, timeout behavior, and transport error.
+  Project-local Chromium 156.0.8078.4 and Firefox 157.0 binaries installed under
+  `.playwright-browsers/`.
+- **Difference/blocker:** Node uses shared browser type APIs rather than one Java Playwright
+  wrapper per scenario; actual API/browser resources remain scenario-scoped. Cucumber/Allure
+  runs were deferred to later stages.
+- **Status/next:** complete; stage 5.
+
+### 2026-11-05 — stage 5: decorators, PageFactory, lazy collections
+
+- **Decisions:** standard decorators, no legacy decorators/reflect metadata/globals; fields
+  declare `{ type: Constructor }`, `{ locator: true }`, or `{ listItem: Constructor }`;
+  constructors require `Locator`; call `PageFactory.initElements` after construction; async
+  `LocatorList<T>`.
+- **Checklist/files:** decorator metadata/selector precedence, nested/raw locators, lazy lists,
+  snapshot/inheritance/cycle diagnostics, invalid declarations and Chromium tests.
+- **Implementation:** metadata uses `WeakMap`; decorators register on concrete runtime
+  constructors; initialization creates locators only; each list operation resolves current
+  matches. ESLint rejects decorated readonly fields; compile-time checks reject invalid field/
+  constructor types.
+- **Java parity:** preserve declarative selectors, nested scoping, leaves, lazy typed components,
+  fallback, cycles, and diagnostics. Java synchronous `List` became explicit async
+  (`count`, `isEmpty`, `get`, `snapshot`); positional locator identity is not promised after
+  reorder/removal.
+- **Verification:** build/lint passed; 19/19 tests; real headless Chromium verified precedence,
+  fallback, nesting, snapshots after DOM insertion, inheritance isolation and errors.
+  `@ts-expect-error` checks invalid component/Locator/array/constructor declarations; lint
+  fixture rejects readonly.
+- **Difference/blocker:** README PageFactory documentation deferred to stage 10; behavior was
+  already implemented and tested.
+- **Status/next:** implementation/tests complete; stage 6.
+
+### 2026-11-05 — stage 6: Sales Analytics API/UI and test steps
+
+- **Decisions:** keep application separate from framework/testsupport; `salesanalytics` is one
+  functional module; assertions stay in steps; do not put Playwright/Allure lifecycle in
+  services/controls.
+- **Checklist/files:** all stage-6 operations, including unused methods; migrated models,
+  filters/builders/service, UI wrappers/controls/page/components, API/UI steps, focused tests.
+- **Behavior:** response wait precedes trigger; check GET `/api/transactions` and status; wait
+  for loading completion without fixed sleeps. Preserve selectors, header mapping, trimming,
+  dropdown-by-value, Apply/Clear, non-empty results, all filter values and decimal precision.
+- **Verification:** build/lint/unit passed; API profile 2/2, headless Chromium UI 3/3, headed
+  full suite 5/5, and two-worker suite 5/5.
+- **Differences/blockers:** Java URI/synchronous APIs/exceptions became Node URL/Promises/TS
+  errors without changing selectors, endpoint, trigger order, or external behavior. Firefox
+  validation remains for stage 10; no application defects were changed.
+- **Status/next:** complete; stage 7.
+
+### 2026-11-05 — stage 7: Cucumber World, definitions, hooks, profiles
+
+- **Decisions:** scenario-scoped `TestWorld`, explicit providers/constructors, preserve existing
+  `Context`/`ContextKey`, no type-safe redesign. Hooks are tag-scoped to prevent double disposal.
+- **Checklist/files:** all profiles, adapters, shared status-code, hooks, JSON/summary, disabled
+  publishing, dry-run; `cucumber.mjs`, World/providers/hooks, definitions, adapters, features.
+- **Implementation:** Cucumber ESM config uses named exports including `default`; previous
+  default-object shape did not load compiled support imports. World initializes only needed
+  API/UI resources. Table adapters preserve transpose, case-insensitive enums, `<empty>`.
+- **Java parity:** unchanged Gherkin expressions/examples/tags; API 2, UI 3; API context does
+  not launch browser.
+- **Verification:** dry-run discovered five scenarios with no undefined/ambiguous bindings;
+  API 2/2, UI 3/3, default 5/5, including parallel default profile.
+- **Difference/blocker:** Cucumber-Pico replaced with World composition root/providers; scope
+  and feature behavior preserved. Named profile export was required and fixed.
+- **Status/next:** complete; stage 8.
+
+### 2026-11-05 — stage 8: Allure and artifacts
+
+- **Decisions:** compatible `allure-cucumberjs`/`allure-js-commons`; no invented Jira/TestRail
+  links; Java baseline and TS output isolated.
+- **Checklist/files:** formatter/runtime, API attachments, failed UI screenshot, Environment,
+  reports, artifact verification; Cucumber config, Allure client, World, hooks, acceptance tests.
+- **Implementation:** importing `allure-cucumberjs` from World registers runtime before API
+  attachments. Keep summary as the one stdout formatter; JSON, Allure, and rerun write to
+  files. Write effective Environment once per run.
+- **Java parity:** request before transport; URL/response after; transport failure attaches
+  and rethrows; screenshot only on failed UI with available page before cleanup; close context
+  before browser to finalize HAR.
+- **Verification:** standard and single-file report generation succeeded. Final parallel Allure
+  run had five passed result JSON, 21 unique attachment files/references, three UI HAR files,
+  correct Environment (`local`, Chromium, headed, parallel 2, retry 1), API attachment order
+  request → URL → response, valid reports/files.
+- **Difference:** Java strips leading `@` from Allure tag labels; TS reporter preserves it.
+  Tag sets match after prefix normalization. Timestamps/UUIDs/layout are not byte-compared.
+- **Error-path note:** generic cleanup tests prove later actions run and preserve failures; the
+  UI hook passes screenshot attachment then session close as ordered cleanup actions. No
+  separate Cucumber fault injection forced `this.attach` itself to fail.
+- **Issue/status:** API attachments were initially missing until the runtime import ordering was
+  fixed. Build cleans generated reports, so final reports were regenerated. Complete; stage 9.
+
+### 2026-11-05 — stage 9: parallelism, retries, failed-only rerun
+
+- **Decisions:** default parallel=1/retry=1 with CLI override; global retry remains per D10;
+  acceptance fixtures isolated from app features; rerun basename starts with `@`.
+- **Checklist/files:** all stage-9 behavior; acceptance feature/steps/tests, Cucumber config,
+  rerun script, package script.
+- **Implementation:** controlled acceptance scenarios; formatter writes `target/@rerun.txt`;
+  rerun profile reads it. Script skips absent/empty input and does not build first, preserving
+  rerun data and final exit status.
+- **Verification:** Node reported 8/8 test entries passed (the grouped parent test plus seven
+  child scenarios), covering actual interval overlap,
+  World/context isolation, attachment uniqueness, retry-to-pass, permanent-failure exit,
+  retry=0, API failure attach/rethrow, failed Outline row, empty rerun, and failed-UI screenshot/
+  HAR per attempt. Retry results shared history/test-case identities. Full two-worker app suite
+  passed 5/5. Final rerun command safely skipped an empty file.
+- **Difference/issue:** Java Cucumber config had no rerun formatter; TS adds it per D10.
+  The incorrect `@target/@rerun.txt` path was corrected to `target/@rerun.txt`.
+- **Status/next:** complete; stage 10.
+
+### 2026-11-05 — stage 10: architecture, docs, parity review
+
+- **Decisions:** reproduce only the two existing ArchUnit boundaries; keep README, contributor
+  guide, and transfer manifest in staging; do not weaken macOS security for Firefox.
+- **Checklist/files:** positive/negative architecture rules, all available validations, profiles,
+  parity, local docs, roadmap mapping, exact transfer/deletion manifest. Firefox remains
+  unchecked. Changed staging Dependency Cruiser/config/test, README, contributor guide,
+  stage-11 manifest, package/lockfile; updated this root migration record. No Java/application
+  source/config/docs changed.
+- **Implementation:** negative fixture proves forbidden import is rejected. Documentation covers
+  real commands, config mapping, decorators, lifecycle, reports/retries/rerun/troubleshooting.
+  Manifest inventory cross-check: 67/67 staging transfer paths and 51/51 root Java deletion
+  candidates match the current tree.
+- **Java parity:** both feature files are byte-identical. Java and TS Allure results each contain
+  five passed scenarios with matching names, tags after removing TS `@` prefix, and 18 identical
+  top-level executed Gherkin step names. API/UI filters/assertions were retained and passed.
+- **Verification:**
+  - `npm ci --no-audit --no-fund`, cwd `typescript_framework`: clean lockfile install. A first
+    attempt from repository root was invalid because root has no package lock; it was rerun in
+    staging.
+  - Checked ESLint 10.14.0 Node engine (`^20.19 || ^22.13 || >=24`) and
+    `typescript-eslint@8.72.1` peers (ESLint 10 and TypeScript `<6.1`). Upgraded the earlier
+    deprecated ESLint 9.39.5 pin and lockfile; Node 26.0.0 satisfies engines.
+  - `npm run typecheck`, `npm run lint` passed; `npm run test:unit` 25/25; `npm run
+  test:acceptance` reported 8/8 test entries (one parent plus seven subtests);
+  `npm run architecture` reported 53 modules/67 dependencies, no violations;
+    deliberate negative fixture rejected.
+  - `npm run cucumber`: 5/5 passed headed Chromium; `npm run test:parallel`: 5/5 passed with
+    two workers. `HEADLESS=true npm run test:api`: 2/2; `HEADLESS=true npm run test:ui`: 3/3.
+  - `npm run allure:generate` and `npm run allure:single` both succeeded; 21 unique attachment
+    files and three UI HAR files exist. Allure CLI requires Java 8+; generation used the
+    available Java 27.0.1. TypeScript build/test execution remains Node-only.
+  - `cmp` confirmed both feature pairs identical; Java/TS Allure parity confirmed five names,
+    18 executed Gherkin steps, and passed statuses.
+  - Cucumber summary totals differ: Java baseline 26 steps, TS 33. Allure top-level per-scenario
+    executed steps/names match; no cause is assumed from this count alone.
+- **Differences:** Java baseline Cucumber JSON had been overwritten by an individual suite run;
+  full Java comparison therefore used its five Allure result JSON files. TS tag labels retain
+  `@`; Java strips it. Feature bytes, scenario names, normalized tags, Allure step names, and
+  statuses match.
+- **Blocker/status:** Firefox 157.0 profile initialization fails on this macOS host with sandbox
+  `Operation not permitted`; the headed probe also blocked `plugin-container`. Reinstalling
+  project-local binaries did not resolve it. Do not weaken security. Implementation and all
+  available checks are complete; stage 10 remains partially blocked only on Firefox UI.
+  Stage 11 has not started.
+- **Next:** present working TypeScript implementation, evidence, and blocker for review. Do not
+  delete Java or move TypeScript to root without separate approval.
+
+### 2026-11-05 — stage 11: final review and transfer to repository root
+- **Approval:** the user explicitly approved stage 11 ("роби 11 етап") after reviewing stages
+  2–10 and confirmed that `typescript_framework/baseline` was not needed.
+- **Pre-checks:** Java recoverable at HEAD `d08ca09`. Manifest lists (67 TS files, 51 tracked Java
+  paths) re-extracted and compared with the tree: every TS file existed, every Java path was
+  tracked, and the only root conflicts were `README.md`, `.gitignore`, and
+  `docs/framework-contributor-guide.md`. No untracked files existed under root `src/`.
+- **Java deletion:** `git rm` of the 51 explicit manifest paths (`pom.xml`, `src/main/**`,
+  `src/test/**`); then only empty directories under `src/` were removed. No recursive
+  deletion of `src/` or root was used.
+- **Transfer:** 64 non-conflicting manifest files moved with relative paths preserved. The
+  existing `node_modules/` and `.playwright-browsers/` were moved to avoid re-downloading;
+  `npm ci` was then run from root. All runtime paths are cwd-relative (`process.cwd()`,
+  `resources/configs`, `target/`, `dist/`), so no source/config changes were needed.
+- **Merges:** `README.md` — TS README adapted to root plus the original application/coverage
+  introduction and the numbered architecture roadmap (items 1–12) rewritten for TypeScript
+  (Dependency Cruiser, `World`, npm package, `LocatorList`, `node:assert`, TS snippets, TS
+  source links). `docs/framework-contributor-guide.md` — TS guide plus the root introduction,
+  the automation-agent change checklist, the implemented/planned roadmap lists, and all
+  rejected-proposal constraints. `.gitignore` — Java-only patterns dropped; Node/TS outputs
+  (`node_modules/`, `dist/`, `coverage/`, `.playwright-browsers/`, `allure-report-single/`)
+  added; `target/`, `.allure/`, `allure-report/`, `.idea`, and logs kept.
+- **Other docs:** `docs/stage-11-transfer-manifest.md` marked executed with a resolution note;
+  `.github/agents/framework-improvement-planner.agent.md` updated from Java/Maven/Pico/ArchUnit
+  to TypeScript/World/Dependency Cruiser. `improvements/`, `TESTS_COVERAGE.md`,
+  `sales-analytics-qa-task/`, `.editorconfig`, and `.allure/` preserved unchanged.
+- **Verification (cwd = repository root, application on port 3000):** `npm ci` OK; `typecheck`,
+  `lint` exit 0; `test:unit` 25/25; `architecture` no violations (53 modules, 67 dependencies);
+  `test:acceptance` 8/8; `HEADLESS=true` `cucumber` 5/5 scenarios (33 steps), `test:api` 2/2,
+  `test:ui` 3/3, `test:parallel` 5/5; Firefox UI with `CFFIXED_USER_HOME` 3/3 serially and with
+  `PARALLEL=2`; `test:rerun` skipped correctly with no failures; `allure:generate` and
+  `allure:single` produced `index.html`.
+- **Side effects / differences:** `npm run build` cleans root `target/` and `allure-report/`, so the
+  old ignored Java outputs there were removed by the first TS build. `allure-report/index.html`
+  is a tracked Java single-file report from the original task commit; it was overwritten by
+  report generation and then restored with `git checkout` so it stays unchanged. Generated TS
+  outputs were cleaned afterwards.
+- **Cleanup:** `typescript_framework/` removed only after verifying it contained just the three
+  merged files, empty directories, generated outputs, and `baseline/`.
+- **Status:** stage 11 complete. Nothing committed.
+- **Next:** user review and commit when requested. Decide whether to keep, delete, or replace the
+  tracked Java `allure-report/index.html`.
+
+### 2026-11-05 — post-stage 11: removal of Java-era improvement plans
+- **Approval:** the user asked to delete `improvements/` after checking that no
+  TypeScript-relevant information would be lost from `README.md` and the contributor guide.
+- **Gap review:** compared `improvements/01–03` with the current docs and code. Already covered:
+  package ownership, rejected proposals, `ApiClientProvider` composition, `@FindBy` precedence,
+  `LocatorList` semantics, lazy locators, and the roadmap. Missing and now added to
+  `docs/framework-contributor-guide.md`: no indirect framework→application coupling
+  (dynamic imports/class names/hidden resources); prerequisites for a separate npm package;
+  the "Adding a provider" criteria (consumer, value source, no secrets, lifetime, single
+  cleanup owner, decorators, placement, narrowest contract, verification); and the recursive
+  PageFactory contract (leaf controls, ignored undecorated fields, fail-fast diagnostics, and
+  cycle detection, which the TS `PageFactory` already implements).
+- **Changes:** `git rm improvements/01–03`; README plan links removed and provider criteria
+  linked; the agent file and guide no longer reference the deleted plans. New plans may still
+  be created in `improvements/` by the framework-improvement-planner agent. The stage-11
+  manifest has a note marking its `improvements/` references as historical.
+- **Verification:** documentation-only change; no remaining `improvements/0*` references
+  outside historical records (`migration_ts.md` and the manifest).
+- **Status:** complete. Nothing committed.
+
+### Journal template for a future approved stage
 
 ```text
-Дата / етап:
-Погоджені рішення:
-Виконані checklist IDs / пункти:
-Змінені файли:
-Що змінено й навіщо:
-Як збережено Java behavior:
-Перевірки — команда, cwd, очікування, фактичний результат:
-Погоджені відмінності:
-Помилки / blockers / невиконані перевірки:
-Статус етапу:
-Наступна дія:
+Date / stage:
+Approved decisions:
+Completed checklist items:
+Changed files:
+Changes and rationale:
+Java behavior preserved:
+Verification (command, cwd, expected and actual result):
+Approved differences:
+Errors / blockers / incomplete checks:
+Status:
+Next action:
 ```

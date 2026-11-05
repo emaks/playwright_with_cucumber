@@ -1,0 +1,46 @@
+{
+  "name": "sales-analytics-test-framework",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src tests",
+    "test:unit": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node --test dist/tests/framework/*.test.js dist/tests/architecture/*.test.js",
+    "test:acceptance": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers node --test dist/tests/acceptance/*.test.js",
+    "cucumber": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers cucumber-js --config cucumber.mjs",
+    "test": "npm run lint && npm run test:unit && npm run cucumber",
+    "test:api": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers cucumber-js --config cucumber.mjs --profile api",
+    "test:ui": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers cucumber-js --config cucumber.mjs --profile ui",
+    "test:firefox": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers BROWSER=firefox cucumber-js --config cucumber.mjs --profile ui",
+    "test:parallel": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers PARALLEL=2 cucumber-js --config cucumber.mjs",
+    "test:retry": "npm run build && PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers cucumber-js --config cucumber.mjs --retry 1",
+    "test:rerun": "node scripts/rerun.mjs",
+    "architecture": "depcruise --validate .dependency-cruiser.cjs src",
+    "allure:generate": "allure generate target/allure-results --clean -o allure-report",
+    "allure:single": "allure generate target/allure-results --single-file --clean -o allure-report-single",
+    "allure:open": "allure open allure-report"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "13.3.0",
+    "allure-cucumberjs": "3.14.0",
+    "allure-js-commons": "3.14.0",
+    "decimal.js": "10.6.0",
+    "lossless-json": "4.3.3",
+    "pino": "10.4.0",
+    "playwright": "1.64.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "allure-commandline": "2.46.1",
+    "dependency-cruiser": "18.7.2",
+    "eslint": "10.14.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1"
+  }
+}

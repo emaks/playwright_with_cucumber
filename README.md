@@ -1,9 +1,9 @@
 # Sales Analytics test automation
 
-Java, Maven, Cucumber, and Playwright tests for the Sales Analytics demo. The Node.js application
-under test is included in [`sales-analytics-qa-task/`](sales-analytics-qa-task/).
-In the Java framework, `salesanalytics` represents a functional module of the application
-under test, not a separate application.
+TypeScript, Playwright, Cucumber.js, and Allure tests for the Sales Analytics demo. The
+Node.js application under test is included in [`sales-analytics-qa-task/`](sales-analytics-qa-task/).
+The `salesanalytics` package represents a functional module of the application under
+test, not a separate application.
 
 The current scenarios cover region/category filtering: API tests check the HTTP status and
 returned values; UI tests apply single or combined filters and check the grid.
@@ -11,190 +11,196 @@ returned values; UI tests apply single or combined filters and check the grid.
 backend pairwise matrix, and a suggested implementation order. It is a test plan, not a list
 of completed automated tests.
 
-## Setup
+The framework was migrated from Java/Maven without changing its architecture or
+behavior; [`migration_ts.md`](migration_ts.md) is the migration record and decision log.
+The previous Java implementation remains available in git history.
 
-You need **JDK 25+**, **Maven 3.9+**, and **Node.js 18+ with npm**. Git is needed if you clone
-the repository rather than unpack an archive. The first setup needs internet access for Maven
-dependencies and Playwright browsers.
+## Requirements and setup
 
-Open a terminal in the repository root and check the installed versions:
+The package declares Node.js `^24.0.0 || >=26.0.0`; npm is required. Chromium and Firefox
+browser binaries are installed only in this project directory (`.playwright-browsers/`).
+Java 8+ is needed only when generating Allure reports with the bundled Allure command-line
+wrapper; compiling and running the tests does not require Java or Maven.
+
+From the repository root:
 
 ```bash
-java -version
-mvn --version
 node --version
 npm --version
+npm ci
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium firefox
 ```
 
-Install the supported browsers:
-
-```bash
-mvn exec:java -Dexec.mainClass=com.microsoft.playwright.CLI \
-  -Dexec.args="install chromium firefox"
-```
-
-Repeat this command if browser binaries are missing or after updating Playwright.
-
-Start the app in a separate terminal:
+In another terminal, start the application:
 
 ```bash
 cd sales-analytics-qa-task
 npm start
 ```
 
-Keep it running for both API and UI tests. The UI is
-at [http://localhost:3000](http://localhost:3000);
-the transactions endpoint is `http://localhost:3000/api/transactions`.
+Keep the application running while executing tests. Its default UI and API endpoints are
+`http://localhost:3000` and `http://localhost:3000/api`.
 
-## Run tests
+## Build and tests
 
-Run these commands from the repository root:
-
-```bash
-mvn test                               # All scenarios
-mvn test -Dtest=BackendTests           # API suite
-mvn test -Dtest=FrontendTests          # UI suite
-mvn test -Dtag=@api                    # Filter by Cucumber tag
-mvn test -Dtag=@ui
-```
-
-UI tests use Chromium and open a visible browser by default, so they need a desktop session.
-For a headless run or a different browser:
+Run commands from the repository root:
 
 ```bash
-mvn test -Dtag=@ui -Dbrowser=firefox -Dheadless=true
+npm run build                 # Clean generated output, then compile strict TypeScript
+npm run typecheck             # Type-check without emitting
+npm run lint                  # ESLint for src/ and tests/
+npm run test:unit             # Unit tests, architecture boundaries, and PageFactory tests
+npm run architecture          # Positive Dependency Cruiser boundary check
+npm run test:acceptance       # Controlled parallel/retry/rerun/reporting acceptance tests
+npm test                      # Lint, unit tests, then all five application scenarios
 ```
 
-The default worker count is one. To run scenarios in parallel:
+Cucumber profiles and common overrides:
 
 ```bash
-mvn test -Dthreads=2
+npm run test:api
+npm run test:ui
+npm run test:firefox          # Firefox UI; see Troubleshooting
+npm run test:parallel         # Full suite with two workers
+npm run test:retry            # Full suite with one retry
+npm run cucumber              # All features; default parallel=1 and retry=1
+npm run test:ui -- --tags @ui # CLI options can override profile configuration
 ```
 
-Surefire retries failing tests once by default. To change the retry count, update
-`rerunFailingTestsCount` in the Maven Surefire configuration in `pom.xml`.
+The API profile selects two API scenarios; the UI profile selects three UI scenarios.
+The default profile selects all five. `PARALLEL`, `RETRY`, `BROWSER`, `HEADLESS`, `ENV`,
+and `TAG` can be set as environment variables. Cucumber CLI `--parallel`, `--retry`,
+and `--tags` options are also supported. The default browser is Chromium, default
+headless mode is false, and default parallel/retry values are 1/1.
 
-## Configuration
+The test suite includes:
 
-`framework.config.PropertyLoader` reads `src/main/resources/configs/{env}.properties`.
-The default environment is `local`, and it is the only configuration file included:
+- `tests/framework/` for configuration, JSON/decimal conversion, cleanup, API behavior,
+  application models/services, and PageFactory behavior.
+- `tests/architecture/` for positive and deliberately invalid dependency-boundary checks.
+- `tests/acceptance/` for controlled runtime scenarios that verify actual worker overlap,
+  scenario isolation, retries, failed-only reruns, and report/attachment behavior. These
+  fixtures do not modify the application feature files.
 
-```properties
-ui.base.url=http://localhost:3000
-api.base.url=http://localhost:3000/api
+## Configuration mapping
+
+`resources/configs/local.json` contains the checked-in endpoint configuration:
+
+```json
+{
+  "ui.base.url": "http://localhost:3000",
+  "api.base.url": "http://localhost:3000/api"
+}
 ```
 
-Use `-Denv` to select another file or Java system properties to override individual settings:
+`ENV` selects `resources/configs/{env}.json`; a missing file is an error. Process
+environment values override file values. Both Java-style keys and uppercase environment
+names are accepted for endpoints (`ui.base.url` / `UI_BASE_URL` and `api.base.url` /
+`API_BASE_URL`). Runtime settings map as follows:
 
-```bash
-mvn test -Denv=local
-mvn test \
-  -Dui.base.url=http://localhost:3000 \
-  -Dapi.base.url=http://localhost:3000/api
-```
+| Java setting | TypeScript setting | Default |
+|---|---|---|
+| `env` | `ENV` | `local` |
+| `ui.base.url` | `UI_BASE_URL` or `ui.base.url` | `http://localhost:3000` |
+| `api.base.url` | `API_BASE_URL` or `api.base.url` | `http://localhost:3000/api` |
+| `browser` | `BROWSER` | `chromium` |
+| `headless` | `HEADLESS` | `false` |
+| `threads` | `PARALLEL` (`THREADS` is also accepted by the loader) | `1` |
+| retry | `RETRY` | `1` |
+| tag expression | `TAG` | Profile default (`@api`, `@ui`, or all) |
 
-| Property       | Default                     | Purpose                              |
-|----------------|-----------------------------|--------------------------------------|
-| `env`          | `local`                     | Configuration file name              |
-| `ui.base.url`  | `http://localhost:3000`     | UI base URL                          |
-| `api.base.url` | `http://localhost:3000/api` | API base URL                         |
-| `browser`      | `chromium`                  | `chromium` or `firefox`              |
-| `headless`     | `false`                     | Run without a visible browser        |
-| `threads`      | `1`                         | Cucumber worker count                |
-| `tag`          | All tags                    | Cucumber tag expression, e.g. `@api` |
+The browser context uses a 1790 × 1120 viewport and a 10,000 ms UI timeout. API requests
+use a 30,000 ms default timeout; `0` disables an individual request timeout. Decimal
+values are parsed losslessly and represented with `decimal.js`, not rounded through
+JavaScript `number`.
 
-API requests have a 30,000 ms timeout. Set `.timeout(milliseconds)` on
-`salesanalytics.api.RequestOptionsBuilder` to override it for a request; `0` disables the timeout.
-
-## Reports
-
-| Output                     | Location                           |
-|----------------------------|------------------------------------|
-| Allure results             | `target/allure-results/`           |
-| Cucumber JSON              | `target/site/cucumber-report.json` |
-| Generated Allure report    | `allure-report/`                   |
-| Browser network recordings | `target/har-recordings/`           |
-
-Allure shows the effective configuration in its Environment section. Failed UI scenarios attach
-a screenshot if the page is initialized and open. API requests attach the method, endpoint,
-query parameters, and timeout before execution, followed by the resolved URL and response status,
-headers, and body. Transport failures attach a stack trace and still fail the scenario.
-
-HAR names include a timestamp and UUID to avoid collisions in parallel runs.
-
-Generate or serve an Allure report:
-
-```bash
-mvn io.qameta.allure:allure-maven:3.1.0:report
-mvn io.qameta.allure:allure-maven:3.1.0:serve
-```
-
-The Maven report goal also creates a wrapper page and site assets. To generate just a
-self-contained `allure-report/index.html`, use the CLI after the Maven plugin has downloaded it:
-
-```bash
-./.allure/allure-2.46.1/bin/allure generate target/allure-results \
-  --single-file --clean -o allure-report
-```
-
-## Structure and design
+## Architecture
 
 ```text
-pom.xml                          # Build, dependencies, and test configuration
-sales-analytics-qa-task/         # Node.js app under test
-src/main/java/io/materialspace/
-  framework/
-    api/                         # API client contract, options, response, and Playwright client
-    config/                      # PropertyLoader
-    json/                        # ObjectMapperUtils
-    lifecycle/                   # Cleanup
-    playwright/                  # Browser and API session resources
-    reporting/allure/            # Allure API client decorator
-    ui/                          # BasePage and PageWrapper
-      control/                   # Button, Dropdown, Table
-  salesanalytics/
-    api/                         # Sales Analytics functional module: service, filters, builder
-      models/                    # TransactionsResponse
-    ui/                          # TransactionsPage
-      component/                 # Filters and TransactionsGrid
-src/main/resources/
-  configs/                       # Environment configuration
-  *.properties                   # Logging and Allure settings
-src/test/java/io/materialspace/
-  architecture/                  # ArchUnit package-boundary rules
-  salesanalytics/
-    definitions/                 # Application-specific Cucumber bindings and mappings
-    steps/                       # API/UI test operations and assertions
-  testsupport/
-    context/                     # Scenario context
-    cucumber/                    # Shared hooks, providers, and transformers
-  suites/                        # JUnit Platform suite entry points
-src/test/resources/
-  features/be/                   # API scenarios
-  features/fe/                   # UI scenarios
-  cucumber.properties            # Glue packages and report plugins
-  archunit.properties            # ArchUnit import settings
+features/
+  ├── Cucumber definitions → application test steps
+  │                            ├── TransactionsService → framework API client
+  │                            └── TransactionsPage → components → controls → Playwright
+  └── testsupport World → scenario-scoped context, providers, and lifecycle hooks
+
+src/
+  ├── framework/       # Reusable Playwright, API, UI, config, JSON, cleanup, logging, Allure
+  ├── salesanalytics/  # Application-specific API, UI, definitions, and test steps
+  └── testsupport/     # Cucumber World, scenario context, providers, hooks, adapters
 ```
 
-Cucumber 7 runs the Gherkin features. `BackendTests` and `FrontendTests` select the API and UI
-feature packages; `cucumber.glue` includes both `testsupport.cucumber` and
-`salesanalytics.definitions`. Application bindings call test steps, which use API services or
-Page Objects. Selectors stay in UI components and controls. Playwright handles browser and API
-automation; AssertJ provides assertions and Jackson maps JSON responses.
+`framework` may not depend on `salesanalytics`, `testsupport`, or test definitions.
+Application API/UI packages may depend on `framework`, but not on `testsupport`.
+`npm run architecture` checks the existing framework/application boundaries, and a
+negative fixture proves that the rule rejects an illegal import.
 
-PicoContainer provides scenario-scoped constructor injection. The API provider wires
-`PlaywrightApiClient` with the `AllureApiClient` decorator, keeping reporting out of services.
-`PlaywrightSession` owns Playwright resources. Hooks close the browser context first to save HAR
-files, then close the browser and Playwright. Cleanup attempts every action, rethrows the first
-failure, and adds later cleanup errors as suppressed exceptions.
-Hooks also preserve screenshot/API-client cleanup errors when session cleanup fails.
+The current scenario lifecycle remains per-scenario. API scenarios create an API request
+context without launching a browser. UI scenarios create a browser page and HAR recording;
+the browser context closes before the browser. Cleanup attempts all registered actions and
+preserves the first and subsequent failures. Browser reuse and transport-independent API
+responses are not part of this migration.
 
-Allure's Cucumber adapter writes report results; Cucumber also writes the JSON report and
-failed-scenario list.
+### Declarative UI elements
 
-See the [framework contributor guide](docs/framework-contributor-guide.md) for layer
-responsibilities, extension examples, lifecycle rules, and constraints relevant to code
-generation.
+Use the standard TypeScript decorator API with explicit constructors and a
+`Playwright Locator` parameter. Class-level selectors supply the default; a field-level
+selector takes precedence. Because TypeScript does not retain ordinary field types at
+runtime, each field declares its element type explicitly:
+
+```ts
+@FindBy({ selector: "#filters" })
+class Filters {
+  constructor(readonly root: Locator) {}
+}
+
+class TransactionsPage extends BasePage {
+  @FindBy({ type: Filters })
+  filtersComponent!: Filters;
+}
+```
+
+`PageFactory.initElements(pageObject, root)` is called after the page/component constructor
+has completed. Annotated fields support `{ type: Constructor }`, `{ locator: true }`, or
+`{ listItem: Constructor }`. A constructor used as a component/list item must accept a
+`Locator`. Typed collections use the async `LocatorList<T>` API (`count`, `isEmpty`,
+`get`, and `snapshot`) rather than pretending to be synchronous JavaScript arrays.
+Initialization creates locators only; it performs no DOM reads or actions.
+
+## Cucumber, reports, and generated files
+
+The Cucumber configuration is `cucumber.mjs`; named profiles are `api`, `ui`,
+`acceptance`, and `rerun`, with the unnamed default selecting all application features.
+External publishing is disabled. `World` is scenario-scoped and creates only the
+resources needed by that scenario type.
+
+All generated files stay under the repository root:
+
+| Output | Location |
+|---|---|
+| Compiled JavaScript | `dist/` |
+| Cucumber JSON and formatter log | `target/site/` |
+| Allure results and attachments | `target/allure-results/` |
+| Failed-scenario rerun input | `target/@rerun.txt` |
+| HAR recordings | `target/har-recordings/` |
+| Generated Allure report | `allure-report/` |
+| Single-file Allure report | `allure-report-single/` |
+
+API calls attach request details before transport, then resolved URL/response on success;
+transport failures attach error details and are rethrown. Failed UI scenarios attach a
+screenshot when a page is available. The Allure Environment metadata records the effective
+environment, browser, headless mode, parallelism, retry count, and tag expression.
+
+Generate and open reports after a test run:
+
+```bash
+npm run allure:generate
+npm run allure:single
+npm run allure:open
+```
+
+`npm run test:rerun` runs only locations in a non-empty `target/@rerun.txt`; it safely
+skips when the file is absent or empty. Do not run `npm run build` between a failed suite
+and the rerun command: build intentionally cleans generated `target/` output.
 
 ## Architecture and planned improvements
 
@@ -202,11 +208,12 @@ Items 1 and 2 describe existing or partially implemented architecture, and item 
 implemented. The remaining items are possible next steps for a real project, not requirements
 for this demo.
 
-1. **Keep framework code separate from application code (implemented; [plan](improvements/01_framework_application_separation.md)).**
+1. **Keep framework code separate from application code (implemented).**
 
    Reusable Playwright sessions, controls, HTTP clients, reporting, and cleanup now live under
    `framework`. Sales Analytics pages, services, and models live under `salesanalytics`.
-   Framework code must not import application or test classes; ArchUnit checks this boundary.
+   Framework code must not import application or test classes; Dependency Cruiser
+   (`npm run architecture`) checks this boundary.
 
    Current top-level packages:
 
@@ -219,43 +226,44 @@ for this demo.
    These boundaries make it possible to reuse framework code without copying Sales Analytics
    classes.
 
-2. **Wire dependencies in providers (partially implemented; [plan](improvements/02_provider_dependency_wiring.md)).**
+2. **Wire dependencies in providers (partially implemented).**
 
    The API provider currently composes `PlaywrightApiClient` with the `AllureApiClient`
    decorator. Services receive the resulting `ApiClient` through constructor injection; they
-   do not create HTTP clients, use a global registry, or call Allure. Cucumber-PicoContainer
-   constructs `TransactionsService` and Page Objects through constructor injection, so there
-   is no separate provider for every class.
+   do not create HTTP clients, use a global registry, or call Allure. The scenario-scoped
+   Cucumber `World` constructs `TransactionsService` and Page Objects through explicit
+   constructors, so there is no separate provider for every class.
 
    What's left is to add explicit providers when an application-specific dependency needs
    configuration or a distinct lifetime—for example, role-specific API clients, authenticated
    browser contexts, or an alternate transport. Keep resource ownership and cleanup clear.
-   Do not add providers just to wrap classes PicoContainer can construct directly.
+   Do not add providers just to wrap classes the `World` can construct directly. The
+   criteria for a new provider are in the [contributor guide](docs/framework-contributor-guide.md#adding-a-provider).
 
-3. **Extract the framework into a separate Maven module (Medium).**
+3. **Extract the framework into a separate npm package (Medium).**
 
-   Framework and Sales Analytics code currently have separate packages but share one Maven
-   module. If another application needs the framework, move the reusable code into its own
+   Framework and Sales Analytics code currently have separate directories but share one npm
+   package. If another application needs the framework, move the reusable code into its own
    module and keep application defaults and Cucumber glue in the consuming test project.
-   This would make the dependency boundary visible to Maven as well as ArchUnit. Until there
+   This would make the dependency boundary visible to npm as well as Dependency Cruiser. Until there
    is another consumer, the package split is enough.
 
 4. **Use a response model that does not depend on Playwright (Medium).**
 
-   `framework.api.ApiClient` hides the HTTP client, but `framework.api.ApiResponse` directly
-   wraps Playwright's `APIResponse` ([source](src/main/java/io/materialspace/framework/api/ApiResponse.java#L3-L9)).
+   `framework/api/ApiClient` hides the HTTP client, but `framework/api/ApiResponse` directly
+   wraps Playwright's `APIResponse` ([source](src/framework/api/ApiResponse.ts#L1-L5)).
    That means a different transport would still affect the framework API.
    If we need to replace Playwright or test services without HTTP calls, return our own
    response containing the status, headers, and body.
 
    For example:
 
-   ```java
-   public record HttpResponse(
-       int status,
-       Map<String, List<String>> headers,
-       String body
-   ) {}
+   ```ts
+   interface HttpResponse {
+     readonly status: number;
+     readonly headers: Readonly<Record<string, readonly string[]>>;
+     readonly body: string;
+   }
    ```
 
    Copy the headers and their value lists so callers cannot change them. The HTTP client
@@ -268,10 +276,10 @@ for this demo.
 
 5. **Keep test-runner dependencies out of application code (Low).**
 
-   ArchUnit currently prevents dependencies on the `testsupport` package, but it does not
-   prevent production classes from importing Cucumber, JUnit, or AssertJ directly
-   ([current rules](src/test/java/io/materialspace/architecture/ArchitectureTest.java#L12-L35)).
-   Add rules for `salesanalytics.api` and `salesanalytics.ui` that reject test-runner
+   Dependency Cruiser currently prevents dependencies on the `testsupport` package, but it does
+   not prevent production code from importing Cucumber or `node:assert` directly
+   ([current rules](.dependency-cruiser.cjs)).
+   Add rules for `salesanalytics/api` and `salesanalytics/ui` that reject test-runner
    dependencies, while allowing framework integrations such as Allure and Playwright where
    they belong. The current checks cover only this functional module; add each future
    application module to the boundary rules as it is introduced. This would make the
@@ -313,10 +321,10 @@ for this demo.
 
    For example, wrap dropdown and button access in methods:
 
-   ```java
-   filters.selectRegion(Region.EUROPE);
-   filters.selectCategory(Category.FURNITURE);
-   filters.apply();
+   ```ts
+   await filters.selectRegion(Region.EUROPE);
+   await filters.selectCategory(Category.FURNITURE);
+   await filters.apply();
    ```
 
    Add `applyFilters(criteria)` if several scenarios repeat this sequence. Keep the smaller
@@ -327,14 +335,14 @@ for this demo.
    waits, and reading values; business assertions belong in tests. Add a workflow layer
    only when tests repeat the same process across several pages.
 
-9. **Declare UI elements with annotations (implemented; [plan](improvements/03_declarative_ui_elements.md)).**
+9. **Declare UI elements with annotations (implemented).**
 
    The project-owned `@FindBy` and `PageFactory` initialize page components and typed
    controls from parent-scoped Playwright locators. Field selectors override class-level
-   selectors; annotated raw `Locator` leaves and lazy `List<T>` wrappers are supported.
-   `BasePage` starts initialization from its `PageWrapper`; PicoContainer continues to own
-   scenario dependencies. Annotated fields must be non-final and have no explicit field
-   initializer. See the [contributor guide](docs/framework-contributor-guide.md) for the
+   selectors; annotated raw `Locator` leaves and async `LocatorList<T>` collections are
+   supported. The UI provider calls `PageFactory.initElements` after the Page Object
+   constructor; the Cucumber `World` continues to own scenario dependencies. Annotated
+   fields must not be `readonly` and must have no field initializer. See the [contributor guide](docs/framework-contributor-guide.md) for the
    supported types and initialization rules.
 
 10. **Make browser reuse configurable.**
@@ -355,12 +363,12 @@ for this demo.
    reported and replaced before the next scenario, not silently retried mid-test.
 
    This would reduce browser startup overhead without giving up scenario isolation.
-   Parallel workers must not share Playwright objects across threads; the implementation
-   needs to keep creation, use, and cleanup on the owning thread.
+   Cucumber.js parallel workers are separate processes, so a reused browser would be owned
+   by one worker; creation, use, and cleanup must stay in that worker.
 
 11. **Separate Playwright session configuration and resource lifetimes (accepted constraint).**
 
-   [`PlaywrightSession`](src/main/java/io/materialspace/framework/playwright/PlaywrightSession.java#L20-L48)
+   [`PlaywrightSession`](src/framework/playwright/PlaywrightSession.ts#L20-L60)
    reads `headless` through static configuration and keeps one `Browser`/`BrowserContext` pair.
    `getNewPage()` launches a new pair and overwrites those fields. This is safe with the current
    one-page-per-scenario hooks, but repeated calls on one session could leave the earlier pair
@@ -369,21 +377,19 @@ for this demo.
 
 12. **Compare objects instead of checking fields one by one.**
 
-   Update API assertions to compare transaction objects with AssertJ instead of using
-   nested loops and a switch over field names. For UI checks, add a method that reads
+   Update API assertions to compare transaction objects (for example with
+   `assert.deepStrictEqual`) instead of using nested loops and a switch over field names. For UI checks, add a method that reads
    the grid as a list of typed rows, such as `TransactionRow`, then compare those objects
-   rather than reading each column separately and checking it with `allMatch()`.
+   rather than reading each column separately and checking it with `every()`.
    Keep expected data separate from assertions. Object comparisons should show which
    fields differ, with actual and expected values, rather than just a boolean failure.
 
    The current filter scenarios only specify region/category, not every transaction field.
    For these checks, compare objects using an explicit list of relevant fields:
 
-   ```java
-   assertThat(actualTransaction)
-       .usingRecursiveComparison()
-       .comparingOnlyFields("region", "category")
-       .isEqualTo(expectedTransaction);
+   ```ts
+   const pick = ({ region, category }: Transaction) => ({ region, category });
+   assert.deepStrictEqual(pick(actualTransaction), pick(expectedTransaction));
    ```
 
    Choose the fields from the scenario's expectations; a region-only scenario should not
@@ -396,27 +402,25 @@ for this demo.
    values from the actual response or grid, or hide unknown fields with broad ignore rules.
    Keep the non-empty result checks so an empty response or grid cannot pass a filter test.
 
+
 ## Troubleshooting
 
-On macOS 27, Firefox may fail at launch with `Could not find profile folder` because the
-system protects its default application-data directory. Give the Playwright Firefox process
-a temporary CoreFoundation home instead:
+- **Application connection refused:** start `sales-analytics-qa-task` in a separate
+  terminal and verify `http://localhost:3000` before running API/UI scenarios.
+- **Browser binary missing:** rerun the project-local Playwright install command from
+  the repository root, preserving `PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers`.
+- **Firefox fails at launch on macOS** (`Operation not permitted` or `Could not find profile
+  folder`): the system protects the default application-data directory. Give Firefox a
+  temporary CoreFoundation home instead of weakening system security:
 
-```bash
-mkdir -p "$TMPDIR/playwright-firefox-home"
-CFFIXED_USER_HOME="$TMPDIR/playwright-firefox-home" \
-  mvn -Dmaven.repo.local="$HOME/.m2/repository" \
-  -Dtag=@ui -Dbrowser=firefox -Dheadless=true test
-```
+  ```bash
+  mkdir -p "$TMPDIR/playwright-firefox-home"
+  CFFIXED_USER_HOME="$TMPDIR/playwright-firefox-home" HEADLESS=true npm run test:firefox
+  ```
 
-The separate Maven repository setting keeps dependencies in the usual cache.
-macOS may protect the generated `Library` and `Downloads` folders in that temporary home;
-let the system clean them up rather than changing their permissions.
-
-| Problem                                 | What to check                                                           |
-|-----------------------------------------|-------------------------------------------------------------------------|
-| Maven will not start                    | JDK 25+ and Maven 3.9+ must be on `PATH`.                               |
-| Connection refused or navigation fails  | Run `npm start` in `sales-analytics-qa-task/` and check port 3000.      |
-| Browser executable is missing           | Repeat the Playwright browser installation command in Setup.            |
-| Browser cannot launch without a desktop | Use `-Dheadless=true`.                                                  |
-| Environment file cannot be found        | Use `-Denv=local` or add `src/main/resources/configs/{env}.properties`. |
+  macOS may protect the generated `Library` and `Downloads` folders in that temporary home;
+  let the system clean them up rather than changing their permissions.
+- **Unexpected tags or profile selection:** inspect `TAG` and CLI `--tags` values; explicit
+  CLI options override profile settings.
+- **Rerun file disappears:** `npm run build` cleans `target/`; run the failed-only rerun
+  before rebuilding.
