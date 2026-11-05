@@ -5,10 +5,22 @@ or framework code, and update it when an approved architecture change alters pac
 ownership, dependency flow, or resource lifecycle. Check the current code and tests before
 extending it; this guide is not authorization to implement roadmap items.
 
-The repository contains test automation for a demo of the application under test.
-`salesanalytics` represents one functional module of that application, not a separate app.
 Keep additions small and follow the existing layers. Do not add a pattern, module, or
-abstraction just because it might be useful to a hypothetical second consumer.
+abstraction just because it might be useful to a hypothetical second consumer. Planned and
+rejected architecture work is tracked in the [architecture roadmap](roadmap.md).
+
+## Contents
+
+- [Architecture and ownership](#architecture-and-ownership)
+- [API services and reporting](#api-services-and-reporting)
+- [UI elements and PageFactory](#ui-elements-and-pagefactory)
+- [Cucumber composition and scenario context](#cucumber-composition-and-scenario-context)
+- [Common tasks](#common-tasks)
+- [Lifecycle, cleanup, and artifacts](#lifecycle-cleanup-and-artifacts)
+- [Configuration and validation](#configuration-and-validation)
+- [Change checklist for an automation agent](#change-checklist-for-an-automation-agent)
+- [Decisions and roadmap constraints](#decisions-and-roadmap-constraints)
+
 ## Architecture and ownership
 
 ```text
@@ -25,18 +37,18 @@ Cucumber World / testsupport
   └── shared parameter and status-code definitions
 ```
 
-| TypeScript location | Responsibility | Must not own |
-|---|---|---|
-| `src/framework/api/` | API client contract, request options, response wrapper, Playwright transport | Application endpoints, filters, and DTOs |
-| `src/framework/reporting/allure/` | API request/response reporting decorator | Reporting calls from application services |
-| `src/framework/playwright/` | Browser and API request contexts; per-scenario resource ownership | Application selectors or endpoint names |
-| `src/framework/ui/` | Page wrapper, base page, generic controls, PageFactory | Application pages and business assertions |
-| `src/framework/config/`, `json/`, `lifecycle/`, `logging/` | Shared configuration, JSON conversion, cleanup, and logging | Application-specific behavior |
-| `src/salesanalytics/api/` | Transactions service, filters, request builder, response model | Playwright resource construction |
-| `src/salesanalytics/ui/` | Transactions page and application-specific components | Cucumber hooks or framework-wide controls |
-| `src/salesanalytics/steps/` | Scenario operations and business assertions | Browser/client construction |
-| `src/salesanalytics/definitions/` | Application Gherkin bindings and table/parameter mappings | Shared lifecycle or generic framework logic |
-| `src/testsupport/` | Scenario Context, World, providers, hooks, and shared definitions | Sales Analytics business rules |
+| Location                                                   | Responsibility                                                                   | Must not own                                |
+|------------------------------------------------------------|----------------------------------------------------------------------------------|---------------------------------------------|
+| `src/framework/api/`                                       | API client contract, request options, response wrapper, Playwright transport     | Application endpoints, filters, and DTOs    |
+| `src/framework/reporting/allure/`                          | API request/response reporting decorator                                         | Reporting calls from application services   |
+| `src/framework/playwright/`                                | Browser and API request contexts; per-scenario resource ownership                | Application selectors or endpoint names     |
+| `src/framework/ui/`                                        | Page wrapper, base page, generic controls, PageFactory                           | Application pages and business assertions   |
+| `src/framework/config/`, `json/`, `lifecycle/`, `logging/` | Shared configuration, lossless JSON decoding (`JsonCodec`), cleanup, and logging | Application-specific behavior               |
+| `src/salesanalytics/api/`                                  | Transactions service, filters, request builder, response model                   | Playwright resource construction            |
+| `src/salesanalytics/ui/`                                   | Transactions page and application-specific components                            | Cucumber hooks or framework-wide controls   |
+| `src/salesanalytics/steps/`                                | Scenario operations and business assertions                                      | Browser/client construction                 |
+| `src/salesanalytics/definitions/`                          | Application Gherkin bindings and table/parameter mappings                        | Shared lifecycle or generic framework logic |
+| `src/testsupport/`                                         | Scenario Context, World, providers, hooks, and shared definitions                | Sales Analytics business rules              |
 
 `framework` may depend on Playwright, Allure, and shared framework libraries. It must not
 import `salesanalytics`, `testsupport`, or application test definitions. The application
@@ -47,9 +59,9 @@ The rule also applies to indirect coupling: framework code must not reach applic
 code through dynamic imports, class names, or hidden reads of application-specific
 resources.
 
-The `salesanalytics` namespace represents one functional module of the application under
-test. Do not make it a separate application or package/module without a new need and
-explicit review. If a second application needs the framework, a separate npm package
+`src/salesanalytics/` represents one functional module of the application under test, not
+a separate application. Do not split it into a separate application or package without a
+new need and explicit review. If a second application needs the framework, a separate npm package
 requires its own review of dependency scopes, test-support placement, configuration
 resources, public API, and versioning; the directory split alone is not a publishable
 library.
@@ -65,7 +77,7 @@ definition → API test step → TransactionsService
 
 `ApiClientProvider` creates the transport/reporting chain, and
 `TransactionsService` receives its client through a constructor. Keep endpoints,
-query-parameter mapping, and response decoding in `salesanalytics.api`; do not construct
+query-parameter mapping, and response decoding in `src/salesanalytics/api/`; do not construct
 Playwright clients in a service or add a provider for every ordinary class.
 
 ### Adding a provider
@@ -100,6 +112,17 @@ failure it attaches the error and rethrows; do not swallow the exception or dupl
 reporting in services/steps. Decimal response values use `decimal.js` with lossless JSON
 parsing; do not convert them through JavaScript `number`.
 
+Other API behavior to preserve:
+
+- `PlaywrightSession` appends a trailing `/` to `api.base.url`, so relative endpoints such as
+  `transactions` keep the `/api` prefix.
+- A request timeout must be finite and non-negative; invalid values fail fast.
+- Responses are decoded by explicit decoder functions with field-level error messages. Do
+  not cast parsed JSON with a blanket `as T`, and do not add schema rejection rules that the
+  API contract does not require (unknown fields are ignored).
+- Filter assertions require a non-empty result before checking every returned
+  region/category value, so an empty response or grid cannot pass a filter test.
+
 ## UI elements and PageFactory
 
 Use the standard TypeScript decorator implementation in
@@ -108,18 +131,20 @@ factory at runtime, so every decorated field explicitly declares its element kin
 constructor:
 
 ```ts
-@FindBy({ selector: "#filters" })
+
+@FindBy({selector: "#filters"})
 class Filters {
-  constructor(readonly root: Locator) {}
+    constructor(readonly root: Locator) {
+    }
 }
 
 class TransactionsPage extends BasePage {
-  @FindBy({ type: Filters })
-  filtersComponent!: Filters;
+    @FindBy({type: Filters})
+    filtersComponent!: Filters;
 
-  constructor(page: PageWrapper) {
-    super(page);
-  }
+    constructor(page: PageWrapper) {
+        super(page);
+    }
 }
 ```
 
@@ -132,7 +157,8 @@ field-level selector overrides it. Supported declarations are:
 
 Component/list-item constructors must explicitly accept a Playwright `Locator`. Decorated
 fields must be public instance fields; they must not be `readonly` or have an initializer.
-The initializer would overwrite the value assigned by the factory. Call
+The initializer would overwrite the value assigned by the factory. The custom ESLint rule
+`framework/no-readonly-findby-fields` (`npm run lint`) rejects `readonly` decorated fields. Call
 `PageFactory.initElements(object, root)` only after the object's constructor has completed.
 The Cucumber `UiPageProvider` follows this ordering. Factory setup creates parent-scoped
 Locator objects and does not query or interact with the DOM.
@@ -149,12 +175,12 @@ separate component marker, setters, static fields, or creation of elements by na
 
 `LocatorList<T>` deliberately is not a synchronous JavaScript array. Use `count()`,
 `isEmpty()`, `get(index)`, or `snapshot()` and await the result. Every operation resolves
-current matching locators; a snapshot retains its membership for that operation. As in the
-Java implementation, positional locators do not promise stable element identity after
-reordering or removal.
+current matching locators; a snapshot retains its membership for that operation.
+Positional locators do not promise stable element identity after reordering or removal.
 
-Keep application selectors in `salesanalytics.ui` components. Page Objects own UI actions,
-synchronization, and reading state; business assertions stay in `salesanalytics.steps`.
+Keep application selectors in `src/salesanalytics/ui/` components. Page Objects own UI
+actions, synchronization, and reading state; business assertions stay in
+`src/salesanalytics/steps/`.
 Wait for the relevant response before triggering an action, check its method/path/status,
 and use loading-state synchronization rather than fixed sleeps.
 
@@ -168,7 +194,7 @@ elements. Preserve this separation so API-only runs do not launch browsers.
 Use the existing `Context` and `ContextKey` for data shared between steps in a scenario.
 A type-safe replacement was rejected; do not reintroduce it as a refactoring. Keep
 definitions thin and map Gherkin data tables through the explicit adapters in
-`salesanalytics.definitions.ParameterTypeAdapter`. Preserve enum normalization,
+`src/salesanalytics/definitions/ParameterTypeAdapter.ts`. Preserve enum normalization,
 transposition, and `<empty>` handling.
 
 Current feature locations are `features/be/` and `features/fe/`. The `api` and `ui` profiles
@@ -176,6 +202,53 @@ select these paths and their tags; the unnamed profile selects all current appli
 features. Avoid modifying feature text or adding application coverage unless requested.
 Runtime/worker behavior belongs in isolated `tests/acceptance/` fixtures, not in application
 feature files.
+
+## Common tasks
+
+These recipes follow the existing Sales Analytics code. Ask the user for expected behavior,
+test data, and assertions before adding coverage; do not infer them.
+
+**Add an API endpoint call**
+
+1. Add a method to the service in `src/salesanalytics/api/` (see `TransactionsService`).
+   Use a relative endpoint (`"transactions"`, no leading `/`) and build query parameters
+   with `RequestOptionsBuilder`.
+2. Model the response in `src/salesanalytics/api/models/` with an explicit decoder built
+   from the `src/framework/json/JsonCodec.ts` helpers (`readDecimal`,
+   `readLosslessInteger`, and similar).
+3. Receive the service's `ApiClient` through its constructor; `TestWorld.initializeApi()`
+   wires it with the client from `ApiClientProvider`. Do not create Playwright clients.
+4. Add a unit test in `tests/framework/` for decoding and parameter mapping.
+
+**Add a page or component**
+
+1. Create the class in `src/salesanalytics/ui/` (pages) or `src/salesanalytics/ui/component/`
+   (components) with a constructor that accepts a `Locator` (components) or `PageWrapper`
+   (pages extending `BasePage`).
+2. Declare elements with `@FindBy` and an explicit `type`, `locator: true`, or `listItem`.
+   Reuse `Button`, `Dropdown`, and `Table` from `src/framework/ui/control/`.
+3. Expose business-level operations (for example `select(...)`, `apply()`); keep
+   synchronization in the Page Object and assertions in steps.
+4. Wire a new page through `UiPageProvider` so `PageFactory.initElements` runs after
+   construction.
+
+**Add a Gherkin step**
+
+1. Put the binding in `src/salesanalytics/definitions/api/` or `.../ui/`; `cucumber.mjs`
+   imports compiled definitions from `dist/src/salesanalytics/definitions/` and
+   `dist/src/testsupport/`, so new files are discovered automatically.
+2. Keep the definition thin: map table data through `ParameterTypeAdapter`, call a method on
+   the steps class from `this.requireApiSteps()` / `this.requireUiSteps()`, and type `this`
+   as `TestWorld`.
+3. Put scenario logic and assertions in `src/salesanalytics/steps/`. Keep the non-empty
+   result checks for filter assertions.
+
+**Share data between steps**
+
+Add a member to `ContextKey` (`src/testsupport/context/ContextKey.ts`), store it with
+`this.context.set(...)`, and read it with `this.context.get<T>(...)`. Fail with a clear
+message when the value is missing. The `Context` is scenario-scoped; do not use module-level
+variables to share state.
 
 ## Lifecycle, cleanup, and artifacts
 
@@ -185,37 +258,50 @@ recording can finalize. Failed UI scenarios attempt a screenshot attachment befo
 cleanup. Preserve attachment errors and cleanup errors; cleanup must attempt every action
 in order and must not hide a prior scenario failure.
 
-Session closed-state guards, repeated-initialization guards, and idempotent close behavior
-were explicitly rejected and reverted. Do not add them without a new request. Browser
-reuse is not implemented; it would require an explicit lifecycle redesign.
+Logging uses Pino (`src/framework/logging/Logger.ts`; level from `LOG_LEVEL`). Its redaction
+list hides authorization, cookie, password, token, and secret values; extend it rather than
+logging credentials.
+
+Browser reuse is not implemented; it would require an explicit lifecycle redesign (see
+[roadmap](roadmap.md) item 10). Session guards are rejected; see
+[Decisions and roadmap constraints](#decisions-and-roadmap-constraints).
 
 All generated output must remain inside the repository root, primarily under `target/`,
 `dist/`, and the Allure report directories. `npm run build` cleans these outputs.
-The Allure CLI wrapper requires Java 8+ when generating HTML reports; the build and test
-execution themselves do not use Java or Maven.
+The Allure CLI wrapper requires a Java runtime (8+) when generating HTML reports; the build
+and test execution themselves do not need it.
 
 ## Configuration and validation
 
 Configuration is loaded from `resources/configs/{env}.json`; missing environment files
 are errors. Process environment overrides the JSON file. The supported runtime variables
-include `ENV`, `BROWSER`, `HEADLESS`, `PARALLEL`, `THREADS`, `RETRY`, and `TAG`; endpoint
+include `ENV`, `BROWSER`, `HEADLESS`, `PARALLEL`, `RETRY`, and `TAG`; endpoint
 overrides include `UI_BASE_URL` and `API_BASE_URL`. Cucumber CLI options can override
 profile values. Defaults are local, Chromium, headed, one worker, and one retry.
 
-From the repository root, use focused validation while developing, then run:
+From the repository root, use focused validation while developing:
 
 ```bash
 npm run typecheck
 npm run lint
-npm run test:unit
-npm run test:acceptance
 npm run architecture
-npm run test:api
-npm run test:ui
+npm run test:unit
+npm run test:api              # or test:ui, depending on the change
 ```
 
-Before reporting full parity, run all five application scenarios, parallel acceptance,
-retry/rerun checks, and Allure generation. Browser availability is host-dependent. On
+Before reporting a change as complete, run the full verification with the application
+running:
+
+```bash
+npm run test:acceptance       # parallel overlap, retry, rerun, and reporting fixtures
+npm run cucumber              # all application scenarios
+npm run test:parallel         # all scenarios with two workers
+npm run test:rerun            # failed-only rerun; skips when nothing failed
+npm run allure:generate       # requires a Java runtime
+```
+
+Run `npm run test:rerun` before any `npm run build`, because build cleans `target/`. Browser
+availability is host-dependent. On
 macOS, Firefox may fail profile initialization with `Operation not permitted`; run it
 with a temporary `CFFIXED_USER_HOME` as described in the README troubleshooting section.
 Do not weaken system security to force a local pass.
@@ -241,25 +327,21 @@ Before creating or editing framework code:
 
 ## Decisions and roadmap constraints
 
-The migration preserves package separation, `ApiClientProvider` composition, the current
-UI component dependency on `salesanalytics.api.TransactionFilter`, the current
-`PropertyLoader` behavior, and the per-scenario resource model. It does not add a provider
-per class, another module, or layers for hypothetical consumers.
+The full list of planned architecture work, with implementation status, is in
+[`roadmap.md`](roadmap.md). Roadmap items are not implementation authorization.
 
-Implemented: package separation between `framework`, `salesanalytics`, and `testsupport`;
-provider-based API client/Allure wiring; Dependency Cruiser rules for the current package
-boundaries; and declarative UI element initialization.
+The current design keeps package separation, `ApiClientProvider` composition, the
+UI component dependency on `src/salesanalytics/api/TransactionFilter.ts`, the current
+`PropertyLoader` behavior, and the per-scenario resource model. Do not add a provider per
+class, another module, or layers for hypothetical consumers.
 
-Still planned: a separate framework package when there is a second consumer, a
-transport-neutral API response, stronger architecture rules against direct test-runner
-dependencies, role-aware authentication, owned test-data fixtures, a higher-level Page
-Object API, browser reuse, and object-based assertions. These are roadmap items, not implementation authorization. A
-type-safe `Context`, larger configuration redesign, session guards, and decoupling the
-UI filter component from `TransactionFilter` are rejected proposals unless the user asks
-to revisit them.
+Rejected proposals, not to be reintroduced unless the user asks to revisit them:
 
-`TESTS_COVERAGE.md` remains a planning source, not evidence of implemented coverage. The
-earlier Java-era improvement plans were removed after their still-relevant rules were
-merged into this guide and the README; they remain in git history. New improvement plans
-go in `improvements/` (see the framework-improvement-planner agent). See `../migration_ts.md` and
-`stage-11-transfer-manifest.md` for the migration record and final transfer inventory.
+- a type-safe `Context` replacement;
+- a larger configuration redesign;
+- session closed-state guards, repeated-initialization guards, and idempotent close
+  behavior (explicitly rejected and reverted);
+- decoupling the UI filter component from `TransactionFilter`.
+
+`TESTS_COVERAGE.md` is a planning source, not evidence of implemented coverage. New
+improvement plans go in `improvements/` (see the framework-improvement-planner agent).

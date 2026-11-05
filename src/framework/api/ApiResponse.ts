@@ -1,5 +1,5 @@
 import type {APIResponse} from "playwright";
-import {type Decoder, readValue} from "../json/ObjectMapperUtils.js";
+import {type Decoder, readValue} from "../json/JsonCodec.js";
 
 export class ApiResponse {
   constructor(private readonly response: APIResponse) {}

@@ -1,9 +1,9 @@
 import {Decimal} from "decimal.js";
 import {
-    isLosslessNumber,
-    LosslessNumber,
-    parse as parseLossless,
-    stringify as stringifyLossless
+  isLosslessNumber,
+  LosslessNumber,
+  parse as parseLossless,
+  stringify as stringifyLossless
 } from "lossless-json";
 
 export type Decoder<T> = (value: unknown) => T;

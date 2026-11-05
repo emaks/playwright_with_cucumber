@@ -1,9 +1,9 @@
 import {Decimal} from "decimal.js";
 import {
-    readDecimal,
-    readLosslessInteger,
-    readOptionalString
-} from "../../../framework/json/ObjectMapperUtils.js";
+  readDecimal,
+  readLosslessInteger,
+  readOptionalString
+} from "../../../framework/json/JsonCodec.js";
 
 export interface TransactionsResponse {
   readonly data: readonly Transaction[] | null;
@@ -88,7 +88,7 @@ function readInt32OrDefault(value: unknown, fieldName: string): number {
   if (value === undefined || value === null) return 0;
   const number = readLosslessInteger(value, fieldName);
   if (number < -2_147_483_648 || number > 2_147_483_647) {
-    throw new RangeError(`Integer '${fieldName}' is outside the Java int range`);
+    throw new RangeError(`Integer '${fieldName}' is outside the 32-bit integer range`);
   }
   return number;
 }

@@ -11,16 +11,33 @@ returned values; UI tests apply single or combined filters and check the grid.
 backend pairwise matrix, and a suggested implementation order. It is a test plan, not a list
 of completed automated tests.
 
-The framework was migrated from Java/Maven without changing its architecture or
-behavior; [`migration_ts.md`](migration_ts.md) is the migration record and decision log.
-The previous Java implementation remains available in git history.
+## Contents
+
+- [Quick start](#quick-start)
+- [Requirements and setup](#requirements-and-setup)
+- [Build and tests](#build-and-tests)
+- [Running in CI](#running-in-ci)
+- [Configuration mapping](#configuration-mapping)
+- [Architecture](#architecture)
+- [Cucumber, reports, and generated files](#cucumber-reports-and-generated-files)
+- [Contributing](#contributing)
+- [Troubleshooting](#troubleshooting)
+
+## Quick start
+
+```bash
+npm ci
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install chromium firefox
+(cd sales-analytics-qa-task && npm start)   # keep running in a separate terminal
+npm test
+```
 
 ## Requirements and setup
 
 The package declares Node.js `^24.0.0 || >=26.0.0`; npm is required. Chromium and Firefox
 browser binaries are installed only in this project directory (`.playwright-browsers/`).
-Java 8+ is needed only when generating Allure reports with the bundled Allure command-line
-wrapper; compiling and running the tests does not require Java or Maven.
+A Java runtime (8+) is needed only by the bundled Allure command-line tool when generating
+HTML reports; compiling and running the tests does not require it.
 
 From the repository root:
 
@@ -49,10 +66,10 @@ Run commands from the repository root:
 npm run build                 # Clean generated output, then compile strict TypeScript
 npm run typecheck             # Type-check without emitting
 npm run lint                  # ESLint for src/ and tests/
-npm run test:unit             # Unit tests, architecture boundaries, and PageFactory tests
+npm run test:unit             # node:test unit tests, architecture boundaries, PageFactory
 npm run architecture          # Positive Dependency Cruiser boundary check
 npm run test:acceptance       # Controlled parallel/retry/rerun/reporting acceptance tests
-npm test                      # Lint, unit tests, then all five application scenarios
+npm test                      # Lint, unit tests, then all application scenarios
 ```
 
 Cucumber profiles and common overrides:
@@ -62,13 +79,13 @@ npm run test:api
 npm run test:ui
 npm run test:firefox          # Firefox UI; see Troubleshooting
 npm run test:parallel         # Full suite with two workers
-npm run test:retry            # Full suite with one retry
+npm run test:retry            # Full suite with --retry 1 (overrides RETRY)
 npm run cucumber              # All features; default parallel=1 and retry=1
 npm run test:ui -- --tags @ui # CLI options can override profile configuration
 ```
 
-The API profile selects two API scenarios; the UI profile selects three UI scenarios.
-The default profile selects all five. `PARALLEL`, `RETRY`, `BROWSER`, `HEADLESS`, `ENV`,
+The `api` profile selects `@api` scenarios, the `ui` profile selects `@ui` scenarios, and
+the default profile selects all application features. `PARALLEL`, `RETRY`, `BROWSER`, `HEADLESS`, `ENV`,
 and `TAG` can be set as environment variables. Cucumber CLI `--parallel`, `--retry`,
 and `--tags` options are also supported. The default browser is Chromium, default
 headless mode is false, and default parallel/retry values are 1/1.
@@ -82,6 +99,25 @@ The test suite includes:
   scenario isolation, retries, failed-only reruns, and report/attachment behavior. These
   fixtures do not modify the application feature files.
 
+## Running in CI
+
+CI agents have no display, so set `HEADLESS=true` explicitly (the default is `false`).
+Install only the browsers the job needs, start the application, and wait until it responds
+before running tests:
+
+```bash
+npm ci
+PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers npx playwright install --with-deps chromium
+(cd sales-analytics-qa-task && npm ci && npm start &)
+npx --yes wait-on http://localhost:3000
+HEADLESS=true PARALLEL=2 npm test
+npm run allure:generate
+```
+
+Publish `allure-report/` (or `allure-report-single/`) and `target/` as job artifacts so
+failure screenshots, HAR files, and the rerun list are available. `--with-deps` installs
+system libraries on Linux agents; omit it on macOS.
+
 ## Configuration mapping
 
 `resources/configs/local.json` contains the checked-in endpoint configuration:
@@ -94,18 +130,18 @@ The test suite includes:
 ```
 
 `ENV` selects `resources/configs/{env}.json`; a missing file is an error. Process
-environment values override file values. Both Java-style keys and uppercase environment
+environment values override file values. Both dotted keys and uppercase environment
 names are accepted for endpoints (`ui.base.url` / `UI_BASE_URL` and `api.base.url` /
 `API_BASE_URL`). Runtime settings map as follows:
 
-| Java setting | TypeScript setting | Default |
+| Setting | Environment variable | Default |
 |---|---|---|
 | `env` | `ENV` | `local` |
 | `ui.base.url` | `UI_BASE_URL` or `ui.base.url` | `http://localhost:3000` |
 | `api.base.url` | `API_BASE_URL` or `api.base.url` | `http://localhost:3000/api` |
 | `browser` | `BROWSER` | `chromium` |
 | `headless` | `HEADLESS` | `false` |
-| `threads` | `PARALLEL` (`THREADS` is also accepted by the loader) | `1` |
+| parallel workers | `PARALLEL` | `1` |
 | retry | `RETRY` | `1` |
 | tag expression | `TAG` | Profile default (`@api`, `@ui`, or all) |
 
@@ -116,17 +152,35 @@ JavaScript `number`.
 
 ## Architecture
 
+Execution flow:
+
 ```text
-features/
+features/*.feature
   ├── Cucumber definitions → application test steps
   │                            ├── TransactionsService → framework API client
   │                            └── TransactionsPage → components → controls → Playwright
   └── testsupport World → scenario-scoped context, providers, and lifecycle hooks
+```
 
+Repository layout:
+
+```text
+features/
+  ├── be/                    # API (@api) feature files
+  └── fe/                    # UI (@ui) feature files
+resources/configs/           # Per-environment endpoint configuration ({env}.json)
 src/
-  ├── framework/       # Reusable Playwright, API, UI, config, JSON, cleanup, logging, Allure
-  ├── salesanalytics/  # Application-specific API, UI, definitions, and test steps
-  └── testsupport/     # Cucumber World, scenario context, providers, hooks, adapters
+  ├── framework/             # Reusable Playwright, API, UI, config, JSON, cleanup, logging, Allure
+  ├── salesanalytics/        # Application-specific API, UI, definitions, and test steps
+  └── testsupport/           # Cucumber World, scenario context, providers, hooks, adapters
+tests/
+  ├── framework/             # Unit tests for framework and application models/services
+  ├── architecture/          # Dependency boundary checks
+  └── acceptance/            # Parallel/retry/rerun/reporting acceptance tests
+scripts/                     # clean and rerun helpers
+docs/                        # Contributor guide and architecture roadmap
+sales-analytics-qa-task/     # Application under test
+cucumber.mjs                 # Cucumber profiles
 ```
 
 `framework` may not depend on `salesanalytics`, `testsupport`, or test definitions.
@@ -138,7 +192,7 @@ The current scenario lifecycle remains per-scenario. API scenarios create an API
 context without launching a browser. UI scenarios create a browser page and HAR recording;
 the browser context closes before the browser. Cleanup attempts all registered actions and
 preserves the first and subsequent failures. Browser reuse and transport-independent API
-responses are not part of this migration.
+responses are items in the [architecture roadmap](docs/roadmap.md).
 
 ### Declarative UI elements
 
@@ -160,7 +214,7 @@ class TransactionsPage extends BasePage {
 ```
 
 `PageFactory.initElements(pageObject, root)` is called after the page/component constructor
-has completed. Annotated fields support `{ type: Constructor }`, `{ locator: true }`, or
+has completed. Decorated fields support `{ type: Constructor }`, `{ locator: true }`, or
 `{ listItem: Constructor }`. A constructor used as a component/list item must accept a
 `Locator`. Typed collections use the async `LocatorList<T>` API (`count`, `isEmpty`,
 `get`, and `snapshot`) rather than pretending to be synchronous JavaScript arrays.
@@ -202,206 +256,21 @@ npm run allure:open
 skips when the file is absent or empty. Do not run `npm run build` between a failed suite
 and the rerun command: build intentionally cleans generated `target/` output.
 
-## Architecture and planned improvements
+## Contributing
 
-Items 1 and 2 describe existing or partially implemented architecture, and item 9 is
-implemented. The remaining items are possible next steps for a real project, not requirements
-for this demo.
+Read the [framework contributor guide](docs/framework-contributor-guide.md) before changing
+framework, application, or test-support code. It defines package boundaries, provider and
+PageFactory contracts, API invariants, logging rules, and the required checks.
+Planned architecture work and its status are tracked in the
+[architecture roadmap](docs/roadmap.md).
 
-1. **Keep framework code separate from application code (implemented).**
+Before opening a change, run:
 
-   Reusable Playwright sessions, controls, HTTP clients, reporting, and cleanup now live under
-   `framework`. Sales Analytics pages, services, and models live under `salesanalytics`.
-   Framework code must not import application or test classes; Dependency Cruiser
-   (`npm run architecture`) checks this boundary.
+```bash
+npm run typecheck && npm run lint && npm run architecture && npm run test:unit
+```
 
-   Current top-level packages:
-
-   ```text
-   framework/            # Reusable test infrastructure
-   salesanalytics/       # Application-specific API and UI code
-   testsupport/          # Shared Cucumber glue and scenario context
-   ```
-
-   These boundaries make it possible to reuse framework code without copying Sales Analytics
-   classes.
-
-2. **Wire dependencies in providers (partially implemented).**
-
-   The API provider currently composes `PlaywrightApiClient` with the `AllureApiClient`
-   decorator. Services receive the resulting `ApiClient` through constructor injection; they
-   do not create HTTP clients, use a global registry, or call Allure. The scenario-scoped
-   Cucumber `World` constructs `TransactionsService` and Page Objects through explicit
-   constructors, so there is no separate provider for every class.
-
-   What's left is to add explicit providers when an application-specific dependency needs
-   configuration or a distinct lifetime—for example, role-specific API clients, authenticated
-   browser contexts, or an alternate transport. Keep resource ownership and cleanup clear.
-   Do not add providers just to wrap classes the `World` can construct directly. The
-   criteria for a new provider are in the [contributor guide](docs/framework-contributor-guide.md#adding-a-provider).
-
-3. **Extract the framework into a separate npm package (Medium).**
-
-   Framework and Sales Analytics code currently have separate directories but share one npm
-   package. If another application needs the framework, move the reusable code into its own
-   module and keep application defaults and Cucumber glue in the consuming test project.
-   This would make the dependency boundary visible to npm as well as Dependency Cruiser. Until there
-   is another consumer, the package split is enough.
-
-4. **Use a response model that does not depend on Playwright (Medium).**
-
-   `framework/api/ApiClient` hides the HTTP client, but `framework/api/ApiResponse` directly
-   wraps Playwright's `APIResponse` ([source](src/framework/api/ApiResponse.ts#L1-L5)).
-   That means a different transport would still affect the framework API.
-   If we need to replace Playwright or test services without HTTP calls, return our own
-   response containing the status, headers, and body.
-
-   For example:
-
-   ```ts
-   interface HttpResponse {
-     readonly status: number;
-     readonly headers: Readonly<Record<string, readonly string[]>>;
-     readonly body: string;
-   }
-   ```
-
-   Copy the headers and their value lists so callers cannot change them. The HTTP client
-   reads the response, copies its data, and closes the original resource. Services and
-   reporting use the copy, which can also be supplied directly in tests.
-
-   This works for small JSON responses. Streams and large files need a different approach
-   with explicit closing, rather than reading everything into memory. Make this change
-   when it solves a real need, not just to add another interface.
-
-5. **Keep test-runner dependencies out of application code (Low).**
-
-   Dependency Cruiser currently prevents dependencies on the `testsupport` package, but it does
-   not prevent production code from importing Cucumber or `node:assert` directly
-   ([current rules](.dependency-cruiser.cjs)).
-   Add rules for `salesanalytics/api` and `salesanalytics/ui` that reject test-runner
-   dependencies, while allowing framework integrations such as Allure and Playwright where
-   they belong. The current checks cover only this functional module; add each future
-   application module to the boundary rules as it is introduced. This would make the
-   intended boundary harder to bypass accidentally.
-
-6. **Handle authentication and user roles in providers.**
-
-   Keep tokens and browser login state out of services and pages. Set them up in providers
-   so each scenario does not need its own login or token-refresh code.
-
-   A provider could create an API client for `Role.ANALYST` or a fresh browser context with
-   that user's storage state. Most tests could skip UI login; login tests would still
-   go through the real flow.
-
-   Keep sessions isolated so different roles can run in parallel. Decide how to refresh
-   expired tokens, allocate test users, and clean up saved login state. Never commit
-   credentials, tokens, or storage state, or expose them in report attachments.
-   The details will depend on how the application handles authentication and permissions.
-
-7. **Manage test data outside test steps.**
-
-   Add fixtures or API helpers that create data and track what needs to be deleted.
-   Use builders where input models are complex enough to justify them.
-
-   For example, create a Europe/Furniture transaction through the API, check it in the UI,
-   then delete only the records created by that scenario. If deletion is not available,
-   use an agreed alternative, such as a separate test tenant, an environment reset,
-   or data that expires.
-
-   Tests would no longer rely on shared records that someone else might change. Use unique
-   identifiers for parallel runs, assign cleanup to a clear owner, and report cleanup errors.
-   Do not bypass the action being tested: a UI creation test must still create its record
-   through the UI.
-
-8. **Give pages and components a clear API.**
-
-   Let tests work with page operations instead of individual controls, unless they need
-   to check a control directly.
-
-   For example, wrap dropdown and button access in methods:
-
-   ```ts
-   await filters.selectRegion(Region.EUROPE);
-   await filters.selectCategory(Category.FURNITURE);
-   await filters.apply();
-   ```
-
-   Add `applyFilters(criteria)` if several scenarios repeat this sequence. Keep the smaller
-   methods for tests that check intermediate states; do not force every interaction into
-   one large method.
-
-   Layout changes would then affect fewer test operations. Pages should handle interactions,
-   waits, and reading values; business assertions belong in tests. Add a workflow layer
-   only when tests repeat the same process across several pages.
-
-9. **Declare UI elements with annotations (implemented).**
-
-   The project-owned `@FindBy` and `PageFactory` initialize page components and typed
-   controls from parent-scoped Playwright locators. Field selectors override class-level
-   selectors; annotated raw `Locator` leaves and async `LocatorList<T>` collections are
-   supported. The UI provider calls `PageFactory.initElements` after the Page Object
-   constructor; the Cucumber `World` continues to own scenario dependencies. Annotated
-   fields must not be `readonly` and must have no field initializer. See the [contributor guide](docs/framework-contributor-guide.md) for the
-   supported types and initialization rules.
-
-10. **Make browser reuse configurable.**
-
-   Separate the lifetime of Playwright and the browser from the lifetime of a scenario.
-   Allow a browser to stay open between tests instead of launching a new one every time.
-   Keep the current per-scenario mode available for tests that need a fresh browser process.
-
-   For example, a future `browser.lifecycle=scenario|worker` setting could choose between
-   a new browser for each scenario and one browser reused by a worker. In worker mode,
-   each scenario would still get a fresh BrowserContext and Page, keeping cookies,
-   local storage, and other context state separate. Reusing the browser should not mean
-   sharing a logged-in context or making tests depend on their execution order.
-
-   A browser owner would manage startup, reuse, and shutdown. Hooks would close each
-   scenario's context to save its HAR and trace files, while the owner would close the
-   browser and Playwright when the worker finishes. A disconnected browser should be
-   reported and replaced before the next scenario, not silently retried mid-test.
-
-   This would reduce browser startup overhead without giving up scenario isolation.
-   Cucumber.js parallel workers are separate processes, so a reused browser would be owned
-   by one worker; creation, use, and cleanup must stay in that worker.
-
-11. **Separate Playwright session configuration and resource lifetimes (accepted constraint).**
-
-   [`PlaywrightSession`](src/framework/playwright/PlaywrightSession.ts#L20-L60)
-   reads `headless` through static configuration and keeps one `Browser`/`BrowserContext` pair.
-   `getNewPage()` launches a new pair and overwrites those fields. This is safe with the current
-   one-page-per-scenario hooks, but repeated calls on one session could leave the earlier pair
-   unclosed. Before reusing a browser across tests, make configuration instance-scoped and give
-   the browser and each scenario's context/page separate owners.
-
-12. **Compare objects instead of checking fields one by one.**
-
-   Update API assertions to compare transaction objects (for example with
-   `assert.deepStrictEqual`) instead of using nested loops and a switch over field names. For UI checks, add a method that reads
-   the grid as a list of typed rows, such as `TransactionRow`, then compare those objects
-   rather than reading each column separately and checking it with `every()`.
-   Keep expected data separate from assertions. Object comparisons should show which
-   fields differ, with actual and expected values, rather than just a boolean failure.
-
-   The current filter scenarios only specify region/category, not every transaction field.
-   For these checks, compare objects using an explicit list of relevant fields:
-
-   ```ts
-   const pick = ({ region, category }: Transaction) => ({ region, category });
-   assert.deepStrictEqual(pick(actualTransaction), pick(expectedTransaction));
-   ```
-
-   Choose the fields from the scenario's expectations; a region-only scenario should not
-   also assert category. This is a partial object comparison, not a check of the whole
-   transaction.
-
-   For full object comparisons, prepare controlled test records and an independently
-   defined expected list, including IDs, dates, and revenue. Compare all fields and list
-   contents, checking order only when the scenario requires it. Do not build expected
-   values from the actual response or grid, or hide unknown fields with broad ignore rules.
-   Keep the non-empty result checks so an empty response or grid cannot pass a filter test.
-
+Run the relevant Cucumber profile as well when steps, pages, or services change.
 
 ## Troubleshooting
 

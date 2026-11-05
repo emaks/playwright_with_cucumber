@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {Decimal} from "decimal.js";
-import {readValue} from "../../src/framework/json/ObjectMapperUtils.js";
+import {readValue} from "../../src/framework/json/JsonCodec.js";
 import {
-    decodeTransactionsResponse
+  decodeTransactionsResponse
 } from "../../src/salesanalytics/api/models/TransactionsResponse.js";
 import {RequestOptionsBuilder} from "../../src/salesanalytics/api/RequestOptionsBuilder.js";
 import {TransactionFilters} from "../../src/salesanalytics/api/TransactionFilters.js";
@@ -28,7 +28,7 @@ test("Sales Analytics response decoding preserves data, metadata, nulls, and dec
           "sort": "date_asc"
         }
       },
-      "futureField": "ignored by the Java model too"
+      "futureField": "ignored by the decoder"
     }`,
     decodeTransactionsResponse
   );
@@ -45,7 +45,7 @@ test("Sales Analytics response decoding preserves data, metadata, nulls, and dec
   assert.equal(response.meta?.filters?.region, "Europe");
 });
 
-test("missing and nullable response fields keep Java primitive/reference defaults", () => {
+test("missing and nullable response fields keep numeric and reference defaults", () => {
   const response = readValue(
     '{"data":[{"revenue":null}],"meta":{"filters":{}}}',
     decodeTransactionsResponse

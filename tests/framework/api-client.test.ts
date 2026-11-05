@@ -5,7 +5,7 @@ import {test} from "node:test";
 import {request} from "playwright";
 import {ApiRequestOptions} from "../../src/framework/api/ApiRequestOptions.js";
 import {PlaywrightApiClient} from "../../src/framework/api/clients/PlaywrightApiClient.js";
-import {readLosslessInteger} from "../../src/framework/json/ObjectMapperUtils.js";
+import {readLosslessInteger} from "../../src/framework/json/JsonCodec.js";
 import {PlaywrightSession} from "../../src/framework/playwright/PlaywrightSession.js";
 
 async function listen(server: Server): Promise<string> {

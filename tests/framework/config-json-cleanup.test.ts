@@ -7,12 +7,12 @@ import {Decimal} from "decimal.js";
 import {isLosslessNumber} from "lossless-json";
 import {PropertyLoader} from "../../src/framework/config/PropertyLoader.js";
 import {
-    parseJson,
-    readDecimal,
-    readLosslessInteger,
-    readOptionalString,
-    writeValueAsString
-} from "../../src/framework/json/ObjectMapperUtils.js";
+  parseJson,
+  readDecimal,
+  readLosslessInteger,
+  readOptionalString,
+  writeValueAsString
+} from "../../src/framework/json/JsonCodec.js";
 import {runCleanup} from "../../src/framework/lifecycle/Cleanup.js";
 import {createLogger} from "../../src/framework/logging/Logger.js";
 

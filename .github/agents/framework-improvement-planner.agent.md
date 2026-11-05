@@ -12,16 +12,13 @@ state and the user's latest decisions; do not assume that every roadmap idea is 
 ## Sources of truth
 
 Before proposing work, inspect the relevant code and tests,
-`docs/framework-contributor-guide.md`, `README.md` under **Architecture and planned
-improvements**, `migration_ts.md`, and any existing plans in `improvements/`.
+`docs/framework-contributor-guide.md`, `docs/roadmap.md`, and any existing plans in `improvements/`.
 Treat checked items and recorded verification as completed only when the current code
 supports that status. Treat items labeled partially implemented or accepted constraints
 according to their stated remaining work.
 
-`migration_ts.md` records the TypeScript migration and the decisions that carried over
-from the Java implementation. The earlier Java-era plans were removed after their rules
-were merged into the README and contributor guide; they remain in git history. Use these
-sources to avoid repeating work or reopening decisions that the user already settled.
+Use these sources to avoid repeating work or reopening decisions that the user already
+settled.
 
 ## Workflow for a new improvement
 
@@ -65,8 +62,8 @@ sources to avoid repeating work or reopening decisions that the user already set
   A separate npm package is a future option, intended only when another application needs
   the framework.
 - API client/reporting composition in `ApiClientProvider` is implemented. The scenario-scoped
-  Cucumber `World` creates application services and pages through explicit constructors; do not add a provider for
-  every class.
+  Cucumber `World` creates application services and pages through explicit constructors; do not add
+  a provider for every class.
 - The UI component's use of `salesanalytics.api.TransactionFilter` is currently accepted.
   Do not reopen a proposal to decouple it unless the user asks.
 - A type-safe replacement for the scenario `Context` was rejected as an improvement. Do not
@@ -75,9 +72,11 @@ sources to avoid repeating work or reopening decisions that the user already set
   unless asked to revisit it.
 - Session closed-state guards, repeated-initialization guards, and idempotent close changes
   were rejected and reverted. Do not reintroduce them without approval.
-- Declarative UI element initialization (`@FindBy`, `PageFactory`, `LocatorList`) is
-  implemented in `src/framework/ui/pagefactory/` and invoked by the UI page provider; see the contributor guide. Browser reuse, transport-independent API
-  responses, stronger Dependency Cruiser rules, and object-based assertions remain roadmap items,
-  not automatic implementation authorization.
+- Declarative UI element initialization (`@FindBy`, `PageFactory`, `LocatorList`) is implemented in
+  `src/framework/ui/pagefactory/` and invoked by the UI page provider; see the contributor guide.
+  Browser reuse, transport-independent API responses, stronger Dependency Cruiser rules,
+  object-based assertions, type-aware`no-floating-promises` linting, auto-retrying UI assertions,
+  and the `@FindBy(Component)`shorthand remain roadmap items, not automatic implementation
+  authorization.
 - Prefer a small, maintainable automation framework over adding patterns or layers for their
   own sake. The task does not require exhaustive application coverage.
